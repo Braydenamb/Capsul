@@ -5,6 +5,7 @@ import { INC, MFN, groupBy } from '../core/incidents.js';
 import { chip } from '../components/statusChip.js';
 import { loopFunnel } from '../components/decisionLoop.js';
 import { ribbon } from '../components/timeline.js';
+import { getAvailableLenses } from '../auth/auth.js';
 
 export function tankRows() {
   const rows = CUR.filter((x) => isAct(x.s.s))
@@ -124,7 +125,7 @@ export function energyChart() {
 
 export function renderCommandView() {
   const K = kpiData(),
-    L = LENS[S.lens],
+    L = LENS[S.lens] || LENS.Operations,
     act = CUR.filter((x) => isAct(x.s.s));
   const flagged = CUR.filter((x) => x.s.s === 'W').map((x) => x.a.tag);
   const sub = act.length
@@ -143,9 +144,10 @@ export function renderCommandView() {
   const cnt = bymode.length,
     tl = sum(bymode.map((i) => i.loss)),
     td = sum(bymode.map((i) => i.dt));
+  const availableLenses = getAvailableLenses();
 
   return `<h1>${L.q}</h1><p class="lead">${sub}</p>
-<div class="lensrow" role="group" aria-label="Function lens">${Object.keys(LENS).map((l) => `<button class="seg" data-lens="${l}" aria-pressed="${l === S.lens}">${l}</button>`).join('')}</div>
+<div class="lensrow" role="group" aria-label="Function lens">${availableLenses.map((l) => `<button class="seg" data-lens="${l}" aria-pressed="${l === S.lens}">${l}</button>`).join('')}</div>
 <div class="kp">${L.k.map((k) => `<div><small>${K[k][0]}</small><b style="color:${K[k][3] || 'var(--ink)'}">${K[k][1]}</b><span class="s">${K[k][2]}</span><span class="tg"><span class="ch ${K.st[k]}"><i></i>${{ N: 'On target', W: 'Watch', A: 'Off target' }[K.st[k]]}</span> <span class="mu">Target: ${K.tg[k]}</span></span></div>`).join('')}</div>
 <section class="pn"><div class="pn-h"><h2>Decision loop</h2><span class="sm mu">Detect, explain, decide, act, verify: where every alert stands</span></div>${loopFunnel()}</section>
 <section class="pn hero"><div class="pn-h"><h2>Plant timeline</h2><span class="sm mu">Each lane is one asset. The striped band is the time Capsul knew before the DCS did.</span></div>${ribbon()}</section>

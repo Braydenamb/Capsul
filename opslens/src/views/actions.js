@@ -2,6 +2,7 @@ import { state as S } from '../core/state.js';
 import { ASSETS, at, isAct, score, kpiData } from '../core/analytics.js';
 import { D0, DAY, dS, nf } from '../core/formatting.js';
 import { OFF, fmtSig } from './investigate.js';
+import { canPerform } from '../auth/auth.js';
 
 export const recCol = (s) => (s === 'Closed' ? 3 : s === 'In progress' ? 1 : 0);
 
@@ -55,6 +56,8 @@ export function renderActionsView() {
     ['Awaiting verification', all.filter((i) => i.col === 2).length]
   ];
   const K = kpiData();
+  const canCreate = canPerform('createAction');
+  const canVerify = canPerform('verifyAction');
 
   return `<h1>Follow-up actions</h1><p class="lead">Capsul recommends the corrective action first, with an owner and guidance. A person accepts it, and it closes only when the signal is back at baseline. Preventive and roll-out actions are on each asset page.</p>
 <div class="kp" style="grid-template-columns:repeat(4,1fr)">${kp.map((k) => `<div><small>${k[0]}</small><b>${k[1]}</b></div>`).join('')}</div>
@@ -66,7 +69,7 @@ export function renderActionsView() {
       );
     return `<div class="col ${col === -1 ? 'rc' : ''}"><h3>${c}<span class="mu num">${cards.length}</span></h3>${cards.map((i) => `<div class="cd ${od(i) ? 'od' : ''}"><b>${i.a.tag}</b> <span class="ty ${i.x.ty}">${i.x.ty}</span><div style="margin-top:4px">${i.x.t}</div>
   <div class="m">Owner ${i.x.pic}. ${col === -1 ? 'Proposed due ' : 'Due '}${dS(i.due, true)}. Source: ${i.src}.${od(i) ? ' <b style="color:var(--T)">Past due' + (i.src === 'RCA record' ? ', no completion recorded' : '') + '</b>' : ''}</div>
-  <div class="bx">${col === -1 ? `<button class="btn pr" data-mk="${i.key}">Create action</button><button class="btn q" data-dis="${i.key}">Dismiss</button>` : col === 0 ? `<button class="btn" data-mv="${i.key}">Start work</button>` : col === 1 ? `<button class="btn" data-mv="${i.key}">Send for verification</button>` : col === 2 ? `<button class="btn pr" data-mv="${i.key}">Verify and close</button>` : ''}</div></div>`).join('') || `<div class="empty">${col === -1 ? 'Nothing recommended. No asset is drifting on this date.' : 'Nothing here.'}</div>`}</div>`;
+  <div class="bx">${col === -1 ? `<button class="btn pr" data-mk="${i.key}" ${canCreate ? '' : 'disabled title="Role cannot create actions"'}>Create action</button><button class="btn q" data-dis="${i.key}">Dismiss</button>` : col === 0 ? `<button class="btn" data-mv="${i.key}">Start work</button>` : col === 1 ? `<button class="btn" data-mv="${i.key}">Send for verification</button>` : col === 2 ? `<button class="btn pr" data-mv="${i.key}" ${canVerify ? '' : 'disabled title="Verification requires Reliability or Admin role"'}>Verify and close</button>` : ''}</div></div>`).join('') || `<div class="empty">${col === -1 ? 'Nothing recommended. No asset is drifting on this date.' : 'Nothing here.'}</div>`}</div>`;
   }).join('')}</div>
 <p class="note">Incident DB: ${K.open.length} RCA and CAPA items are open on this date and ${K.late} are past their RCA due date. Actions from the five RCA reports appear on the day after each trip, with the status recorded in the report. Nothing in the data records their completion, which is the tracking gap this board closes.</p>`;
 }
