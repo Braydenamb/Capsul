@@ -1,0 +1,130 @@
+Nah, sekarang kita akan masuk ke Case kedua. Yang mana topiknya adalah Intelligence Manufacturing Unified Dashboard. Aia inside analysis dan Follow Up Action Recommendation untuk penjelasan case nya. Saya kembalikan lagi. Juga ke Mbak Brigita untuk bisa menjelaskan.
+
+00:15:03.000 --> 00:15:20.000
+Siap. Terima kasih, Mbak Cheris. Hanya teman teman. Kita masuk ke Intelijen Manufacturing Unified. Nah, untuk kes dua. Ini topiknya. Itu lebih ke arah. Mungkin ada mirip mirip sama K satu. Kalau K satu lebih ke arah prosedural. Kalau ini lebih ke arah data gitu, ya?
+
+00:15:20.000 --> 00:15:36.000
+Data itu. Kalau misalkan maksudnya, mungkin teman teman juga cukup familiar. Biasanya akan disajikan dalam bentuk suatu dashboard yang udah dipertimbangkan untuk dilakukan analisa tertentu dan balik lagi ke decision Making yang sesuai dengan dashboard itu.
+
+00:15:36.000 --> 00:16:05.000
+Nah, tapi masalah yang kita alami salah satunya adalah selama ini, dashboard itu dibuat oleh tim yang berbeda, Beda oleh Divisi yang berbeda beda dengan Pov. Sudah pandang yang berbeda. Beda gitu, ya? Nah, hal yang menyebabkan ketika terjadi suatu masalah yang sebetulnya melibatkan Sistem Acrossing Vision. Tadi itu tuh untuk pengambilan. Keputusannya bingung karena mungkin tadi basboard nya itu berbeda. Beda sudut pandangnya. Ada yang mungkin berdasarkan apa berdasarkan parameter paramet.
+
+00:16:05.000 --> 00:16:24.000
+Yang diambil itu juga mungkin bisa berbeda. Beda gitu tergantung kebutuhan Cd Vision tersebut. Padahal kan sebetulnya dalam manufacturing segala sesuatu. Itu mungkin teman, Teman yang teknik industri juga sudah familiar. Segala sesuatu itu terjadi, saling berhubungan, saling berkaitan gitu. Ya, ada ada sebab, dan ada akibat.
+
+00:16:24.000 --> 00:16:39.000
+Nah, inilah yang pada akhirnya. Dalam Case, ini, permasalahan ini yang kita angkat. Yang mana kita bermimpi memiliki suatu glashboard yang bisa menggabungkan seluruh sudut pandang dari setiap divisi ini.
+
+00:16:39.000 --> 00:17:01.000
+Tapi juga, walaupun berbeda, beda sudut pandang gitu. Ya, tapi juga, tapi juga memiliki common goal yang memang sama gitu, Ya, jadi parameter parameter yang juga digunakan itu seperti kpi format datanya. Bagaimana sistem reporting nya dan lain sebagainya? Itu juga harapannya ter Standardized.
+
+00:17:01.000 --> 00:17:18.000
+Dan setelah itu, ketika Su sudah memiliki suatu yang sama, harapannya dashboard. Ini juga cukup reliabel untuk menyelesaikan berbagai jenis Isu baik isu yang terjadi secara operasional ataupun untuk tadi. Pengambilan keputusan secara lebih strategis untuk ke depannya gitu. Ya.
+
+00:17:18.000 --> 00:17:24.000
+Nah, mungkin boleh. Next. Slide.
+
+00:17:24.000 --> 00:17:40.000
+Oke, jadi problem statement nya adalah teman teman mahasiswa diharapkan untuk membuat suatu intelligent manufacturing dashboard yang mengintegrasikan berbagai jenis Data yang mungkin biasa. Datanya nanti akan dijelaskan lebih lanjut oleh Tim Operation Manufacturing gitu, ya?
+
+00:17:40.000 --> 00:17:57.000
+Operation Technology. Sorry ke dalam suatu dashboard yang bisa digunakan untuk pengambilan keputusan. Jadi yang namanya bisa untuk pengambilan keputusan, Apalagi pengambilan keputusan di lapangan gitu, teman. Teman Jadi, diharapkan si dashboard ini. Itu juga user Friendly.
+
+00:17:57.000 --> 00:18:15.000
+Dapat dimengerti gitu. Understandable. Kalau misalkan dibuat terlalu, Advance pun akan sulit tuh. Apalagi kalau kita misalnya ada ada down Nih, misalnya suatu mesin gitu. Ya, tapi misalnya Dat, untuk melihat datanya aja, sulit nih. Perlu dimengerti. Perlu dianalisis dengan lama itu kan juga akan mempersulit.
+
+00:18:15.000 --> 00:18:38.000
+Juga akan memperlambat pengambilan keputusan di lapangan. Begitu. Ya, jadi diharapkan dashboard nya itu walaupun terdiri dari berbagai macam data, Tapi juga user Friendly sehingga dapat digunakan secara lebih efektif. Nah, mungkin beberapa Key Question di sini adalah yang pertama bagaimana. Perusahaan itu dapat memiliki suatu dashboard yang terstandardize sehingga bisa memenu sehingga bisa.
+
+00:18:38.000 --> 00:18:55.000
+Memiliki suatu One Govern Data gitu? Ya, yang tadi Govern Itu Govern yang disebut Govern. Itu artinya adalah yang dia Sesuai sama goal tertentu dalam hal ini. Misalnya kpi nya gitu, Ya, kpi tuh. Apa sih dari masing masing dashboard ini? Jadi.
+
+00:18:55.000 --> 00:19:15.000
+Start of Mind nya. Itu adalah si Kpi itu sendiri. Gold nya itu apa gitu? Nah, kalau misalkan teman teman ngerasa bisa mendefinisikan Kpi atau gold atau objektif dari setiap bedelang data. Itu would be very good gitu Ya, karena dari situlah teman teman bisa mentransikannya menjadi suatu gashboard yang memang efektif.
+
+00:19:15.000 --> 00:19:35.000
+Nah, yang kedua adalah bagaimana suatu perusahaan itu dapat membangun tadi. Balik lagi. Single Paint of Less. Ya, dashboard tadi. Ya, yang bisa Provide Executive Feasibility untuk Performance Manufacturing secara keseluruhan. Jadi, diharapkan di sini juga bisa menggambarkan N to n Performance Operational di Manufacturing Nah.
+
+00:19:35.000 --> 00:19:52.000
+Gitu. Nah, dan yang ketiga adalah bagaimana Ai bisa membantu kita untuk mengidentifikasi Kira Kira Root Cost. Apa sih yang terjadi dari suatu permasalahan. Karena kan? Mungkin teman teman pernah dengar juga? Konsep kayak preventif sama korektif gitu? Ya, preventif dan korektif. Action.
+
+00:19:52.000 --> 00:20:21.000
+Biasanya, ketika terjadi suatu masalah, orang orang itu cenderung untuk mengambil action yang korektif tuh untuk memperbaiki dulu si masalah tersebut gitu, kan? Supaya soft terlebih dahulu. Tetapi untuk preventifnya, untuk mencegah supaya masalah itu tidak timbul kembali, itu yang memerlukan Road cost analysis Secara lebih dalam. Nah, diharapkan ada suatu teknologi yang berbasis Mungkin A dalam paket ini yang cepat gitu. Ya, itu bisa membantu si analisis tersebut untuk mencegah tadi. Potensi terjad.
+
+00:20:21.000 --> 00:20:34.000
+Masalah itu gitu. Nah, untuk base lain, Data dan juga Expected Solution bisa dilanjutkan oleh teman teman Operation Technology dari Mas Alif atau Mas Satria? Silakan.
+
+00:20:34.000 --> 00:20:35.000
+Oke.
+
+00:20:35.000 --> 00:20:44.000
+Thanks, Mbak baru kita. Jadi, kalau untuk Yang Case dua ini, penekanannya ada di.
+
+00:20:44.000 --> 00:20:59.000
+Intel G, Man, Factoring atau integrity dashboard. Jadi, si dashboard yang harus bisa diprodus oleh ketentuan Sua nanti sudah pasti harus mengonsolidate dari data Source atau yang mendukung Cpi. Yang tadi sudah disebutkan.
+
+00:20:59.000 --> 00:21:15.000
+Jadi, Ear nanti. Dashboard yang tadinya mungkin multiple dan bisa diakses. Hanya orang tertentu. Nanti kita mau integrated. Itu yang pertama. Jadi, Single Pan of busnya juga akan menunjukkan bahwa semua Kpi yang terkait sama Kpi tersebut saja nanti hanya punya satu dashboard.
+
+00:21:15.000 --> 00:21:22.000
+User nanti juga hanya akan bisa melihat ke satu. Dash Watch. Satu informasi yang bisa dipercaya.
+
+00:21:22.000 --> 00:21:40.000
+Di mana nanti Dari dashboard tersebut? Selain langsung kelihatan parameter yang mungkin Achieve atau enggak Milo Target atau target, atau Bahkan Hit The Target itu nanti bisa langsung terlihat di sana. Tujuannya apa? Jika memang ada yang target atau bahkan lower dan target.
+
+00:21:40.000 --> 00:21:53.000
+Nanti bisa langsung dibantu sama si Ea yang ada di dalam Solution yang nanti kalian buat untuk membantu memecahkan Kira Kira nanti kalau. Misalnya. Memang dia bilang target penyebabnya itu dari mana?
+
+00:21:53.000 --> 00:22:14.000
+Kenapa dia bisa sampai menjelaskan juga analisis support nya itu seperti apa? Bahkan kalau dilihat Expected Solution yang terakhir, itu juga sampai merekomendasi. Action Tadi sudah disebut baik. Itu preventifnya. Seperti apa? Korektifnya seperti apa? Itu juga diharapkan ada di solusi yang nanti kalian akan buat.
+
+00:22:14.000 --> 00:22:19.000
+Gimana caranya kita move ke Next Side di baseline. Data.
+
+00:22:19.000 --> 00:22:23.000
+Jadi, nanti terlihat dari baseline. Datanya.
+
+00:22:23.000 --> 00:22:38.000
+Di mana kita akan suplai dengan Production? Data yang nanti akan menunjuk sebagai Source. Bisa dibilang untuk si dashboard nya sendiri. Kemudian nanti. Si Road Cost, analisis support dan Follow Up Recommendation Action. Itu sebenarnya.
+
+00:22:38.000 --> 00:22:54.000
+Mostly akan dibantu sama si insiden Database Equipment Performance sama Down Time. Data di mana dari sini sebenarnya akan menjadi Clue buat kalian. Atau kata kunci juga buat kalian untuk Si Ai bisa menentukan. Harusnya action nya seperti apa agar tidak terulang.
+
+00:22:54.000 --> 00:23:10.000
+Kita harus melakukan preventif seperti apa? Walaupun memang secara korektif tetap harus dilakukan. Kemudian Jangan lupa korektif yang dilakukan ataupun Preventif yang dilakukan pun juga. Itu harus berdasarkan rekomendasi atau pas Experience yang pernah terjadi.
+
+00:23:10.000 --> 00:23:24.000
+Di That s Why Kita kasih insiden database juga. Dan down time data. Tujuannya nanti. Ci bisa juga reclok up ke sana. Based on Pass Experience. Itu harusnya seperti apa jika memang terjadi atau terulang kesalahan yang sama atau kejadian yang sama.
+
+00:23:24.000 --> 00:23:27.000
+Kurang Audi, gitu.
+
+00:23:27.000 --> 00:23:31.000
+Thank you, kembali ke Mbak. Seri.
+
+00:23:31.000 --> 00:23:51.000
+Terima kasih, Mas Alif dan Mbak Brigita. Oke, sekarang kita akan masuk untuk membahas format dari Subvision nya. Jadi di sini. Sama seperti yang kita sudah sediakan di dalam Booklet untuk Subvision nya Jadi, dari kita membutuhkan dari setiap partisipan untuk men submit tiga.
+
+00:23:51.000 --> 00:24:12.000
+File gitu. Jadi, yang pertama adalah moge up atau prototipenya yang bisa disediakan melalui fitnah atau Html atau Other Format Yang misalnya dari teman teman peserta prefer nya menggunakan itu selama dari kami, Panitia bisa mengakses dan bisa mengecek gitu nantinya.
+
+00:24:12.000 --> 00:24:28.000
+Kemudian video demo selama tiga menit yang menjelaskan dan juga mendemonstrasikan bagaimana sih cara kerja dari moge up atau prototype tadi gitu. Nah, ini tidak Harus ada. Menampilkan wajahnya gitu, Teman teman. Jadi, yang penting ada penjelasannya.
+
+00:24:28.000 --> 00:24:47.000
+Kemudian, yang ketiga adalah presentation Deb dalam bentuk Pdf yang berisi tujuh slides dengan termasuk kovernya gitu. Jadi mungkin nanti Kita juga akan. Rinciannya ada di Side yang berikutnya. Seluruh proposal ini dan juga material yang di Submit menggunakan bahasa Inggris. Teman, teman.
+
+00:24:47.000 --> 00:24:59.000
+Oke, nah, kemudian berikutnya untuk isi dari presentation deck nya itu sendiri dari kami. Requirement nya adalah.
+
+00:24:59.000 --> 00:25:17.000
+Dimana dengan kover gitu yang pertama menjelaskan masing masing tim dari nama timnya. Dan juga Case yang dipilih gitu. Ya, Jadi tadi kan kita sudah jelaskan Ada dua case yang bisa dipilih salah satunya. Kemudian yang slide kedua masuk ke penjelasan mengenai background dan juga problem statement.
+
+00:25:17.000 --> 00:25:34.000
+Kemudian dilanjutkan dengan Solution. Ya, dan kemudian juga bisnis Impact. Kemudian Feasibility and Roadmap dan juga dilanjutkan dengan Page terakhir Page Tujuh. Itu bisa menjelaskan juga untuk profil tim. Jadi, bisa dijelaskan bagaimana.
+
+00:25:34.000 --> 00:25:50.000
+Kerja samanya nih. Di dalam tim. Siapa yang berkontribusi di bidang apa dan juga bisa dijelaskan Sedikit background dari masing Masing teman, teman. Satu persatu begitu. Nah, kemudian, misalnya, ada tambahan informasi. Bisa disampaikan Melaluix. Ini tidak.
+
+00:25:50.000 --> 00:26:00.000
+Di Include begitu dalam limit Tujuan aman tadi. Tapi yang kita akan nilai terlebih dahulu itu adalah tujuh slide utama tadi.
