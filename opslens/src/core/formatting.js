@@ -61,7 +61,7 @@ export function issueText(a, s) {
   const sigs = `${s.ns} of 4 signals beyond 3σ`;
   return (
     (s.s === 'W'
-      ? `OpsLens flag: ${sigs}. The DCS has not alarmed. `
+      ? `Capsul flag: ${sigs}. The DCS has not alarmed. `
       : `DCS alarm since ${dS(a.t[a.al])}. ${sigs}. `) +
     `Strongest: ${sg.n} at ${sgm(top[0])}. ${remTxt(s.rem).replace(/^./, (c) => c.toUpperCase())}.`
   );

@@ -129,27 +129,27 @@ export function banner(a, s) {
     dl = (t) => dS(t, true);
   if (S.ms > a.failMs)
     return [
-      `Failed on ${dl(a.failMs)}: ${a.r.dt} h down and ${fmtK(a.r.loss)} lost. OpsLens had flagged it ${a.leadFail} weeks earlier, on ${dl(a.t[a.fl])}.`,
+      `Failed on ${dl(a.failMs)}: ${a.r.dt} h down and ${fmtK(a.r.loss)} lost. Capsul had flagged it ${a.leadFail} weeks earlier, on ${dl(a.t[a.fl])}.`,
       'a'
     ];
   if (fl && al && a.lead > 0)
     return [
-      `<b>OpsLens raised a heuristic flag on ${dl(a.t[a.fl])}.</b> The DCS alarmed ${a.lead} weeks later, on ${dl(a.t[a.al])}.`,
+      `<b>Capsul raised a heuristic flag on ${dl(a.t[a.fl])}.</b> The DCS alarmed ${a.lead} weeks later, on ${dl(a.t[a.al])}.`,
       'a'
     ];
   if (fl && al)
     return [
-      `<b>The DCS alarmed first</b>, on ${dl(a.t[a.al])}. OpsLens confirmed with ${a.ns[a.fl]} signals ${-a.lead} weeks later. It adds no lead time on this asset, but it names the cause.`,
+      `<b>The DCS alarmed first</b>, on ${dl(a.t[a.al])}. Capsul confirmed with ${a.ns[a.fl]} signals ${-a.lead} weeks later. It adds no lead time on this asset, but it names the cause.`,
       'a'
     ];
   if (fl)
     return [
-      `<b>OpsLens raised a heuristic flag on ${dl(a.t[a.fl])}:</b> ${s.ns} of 4 signals beyond 3σ. The DCS has not alarmed yet.`,
+      `<b>Capsul raised a heuristic flag on ${dl(a.t[a.fl])}:</b> ${s.ns} of 4 signals beyond 3σ. The DCS has not alarmed yet.`,
       'w'
     ];
   if (al)
     return [
-      `<b>The DCS alarmed on ${dl(a.t[a.al])}.</b> ${s.ns} of 4 signals are beyond 3σ so far. OpsLens needs 3 to flag.`,
+      `<b>The DCS alarmed on ${dl(a.t[a.al])}.</b> ${s.ns} of 4 signals are beyond 3σ so far. Capsul needs 3 to flag.`,
       'a'
     ];
   return [

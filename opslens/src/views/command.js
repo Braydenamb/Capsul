@@ -47,7 +47,7 @@ function issueTextLocal(a, s) {
 
   return (
     (s.s === 'W'
-      ? `OpsLens flag: ${sigs}. The DCS has not alarmed. `
+      ? `Capsul flag: ${sigs}. The DCS has not alarmed. `
       : `DCS alarm since ${dS(a.t[a.al])}. ${sigs}. `) +
     `Strongest: ${sg.n} at ${sgm(top[0])}. ${remTxt(s.rem).replace(/^./, (c) => c.toUpperCase())}.`
   );
@@ -128,7 +128,7 @@ export function renderCommandView() {
     act = CUR.filter((x) => isAct(x.s.s));
   const flagged = CUR.filter((x) => x.s.s === 'W').map((x) => x.a.tag);
   const sub = act.length
-    ? `${act.length} of 5 monitored assets are drifting: ${act.map((x) => x.a.tag + ' (' + NM[x.s.s].toLowerCase() + ')').join(', ')}. ${flagged.length ? flagged.join(' and ') + ' ' + (flagged.length > 1 ? 'were' : 'was') + ' flagged by OpsLens before the DCS alarmed. ' : ''}${fmtK(stakeOf())} of production is at stake.`
+    ? `${act.length} of 5 monitored assets are drifting: ${act.map((x) => x.a.tag + ' (' + NM[x.s.s].toLowerCase() + ')').join(', ')}. ${flagged.length ? flagged.join(' and ') + ' ' + (flagged.length > 1 ? 'were' : 'was') + ' flagged by Capsul before the DCS alarmed. ' : ''}${fmtK(stakeOf())} of production is at stake.`
     : 'No monitored asset is drifting on this date. Drag the timeline or jump to a key moment.';
   const en = energyChart(),
     ex = K.ex;
@@ -148,7 +148,7 @@ export function renderCommandView() {
 <div class="lensrow" role="group" aria-label="Function lens">${Object.keys(LENS).map((l) => `<button class="seg" data-lens="${l}" aria-pressed="${l === S.lens}">${l}</button>`).join('')}</div>
 <div class="kp">${L.k.map((k) => `<div><small>${K[k][0]}</small><b style="color:${K[k][3] || 'var(--ink)'}">${K[k][1]}</b><span class="s">${K[k][2]}</span><span class="tg"><span class="ch ${K.st[k]}"><i></i>${{ N: 'On target', W: 'Watch', A: 'Off target' }[K.st[k]]}</span> <span class="mu">Target: ${K.tg[k]}</span></span></div>`).join('')}</div>
 <section class="pn"><div class="pn-h"><h2>Decision loop</h2><span class="sm mu">Detect, explain, decide, act, verify: where every alert stands</span></div>${loopFunnel()}</section>
-<section class="pn hero"><div class="pn-h"><h2>Plant timeline</h2><span class="sm mu">Each lane is one asset. The striped band is the time OpsLens knew before the DCS did.</span></div>${ribbon()}</section>
+<section class="pn hero"><div class="pn-h"><h2>Plant timeline</h2><span class="sm mu">Each lane is one asset. The striped band is the time Capsul knew before the DCS did.</span></div>${ribbon()}</section>
 <section class="pn"><div class="pn-h"><h2>Problem tank</h2><span class="sm mu">One queue for every source, ranked by a score you can inspect</span></div>
 <div id="tankrows">${tankRows()}</div>
 <div class="legend" style="margin-top:8px">${FN.map((f, i) => `<span><i class="sw" style="background:var(--f${i + 1})"></i>${f}</span>`).join('')}</div>

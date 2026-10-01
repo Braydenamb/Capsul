@@ -337,7 +337,7 @@ if (demoBtn) {
 
     at_(10800, () => {
       cap(
-        '<b>21 Jan.</b> OpsLens flags KO-3201: ' +
+        '<b>21 Jan.</b> Capsul flags KO-3201: ' +
           (KO.ns[KO.fl] === 4 ? 'all four' : KO.ns[KO.fl] + ' of its four') +
           ' signals are beyond 3σ together. The DCS has not alarmed.'
       );
@@ -379,7 +379,7 @@ if (demoBtn) {
       S.ms = D0('2026-02-11');
       render();
       window.scrollTo(0, 0);
-      cap('<b>11 Feb.</b> The DCS finally alarms. That is 3 weeks after OpsLens flagged it.');
+      cap('<b>11 Feb.</b> The DCS finally alarms. That is 3 weeks after Capsul flagged it.');
     });
 
     at_(43500, () => {
@@ -387,7 +387,7 @@ if (demoBtn) {
       render();
       window.scrollTo(0, 0);
       cap(
-        '<b>29 Apr.</b> KO-3201 trips: 32 h down and US$1.58M lost. The RCA written after this failure confirms the cause OpsLens hypothesised on 21 Jan. In this replay that RCA is the knowledge base.'
+        '<b>29 Apr.</b> KO-3201 trips: 32 h down and US$1.58M lost. The RCA written after this failure confirms the cause Capsul hypothesised on 21 Jan. In this replay that RCA is the knowledge base.'
       );
     });
 

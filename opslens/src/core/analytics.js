@@ -266,7 +266,7 @@ export function dq() {
       ],
       b: ['Needed', 'A standard failure-mechanism list'],
       opts: ['Normalize with a mapping', 'Leave as recorded'],
-      why: 'Similar-incident search needs comparable codes. OpsLens derives them from the title as a stop-gap.'
+      why: 'Similar-incident search needs comparable codes. Capsul derives them from the title as a stop-gap.'
     },
     {
       id: 'pl',
@@ -319,5 +319,5 @@ export function scorecard() {
       '1 day or less for Tier 1'
     ]
   ];
-  return `<section class="pn"><div class="pn-h"><h2>Closed-loop scorecard</h2><span class="sm mu">Does the loop actually close? Baseline is measured, targets are proposed</span></div><div class="tb"><table><tr><th>Loop KPI</th><th>Baseline from the data</th><th>Target with OpsLens</th></tr>${R.map((r) => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td></tr>`).join('')}</table></div></section>`;
+  return `<section class="pn"><div class="pn-h"><h2>Closed-loop scorecard</h2><span class="sm mu">Does the loop actually close? Baseline is measured, targets are proposed</span></div><div class="tb"><table><tr><th>Loop KPI</th><th>Baseline from the data</th><th>Target with Capsul</th></tr>${R.map((r) => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td></tr>`).join('')}</table></div></section>`;
 }

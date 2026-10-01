@@ -12,7 +12,7 @@ export function items() {
       const key = a.tag + '|' + n,
         cr = S.created[key],
         st = at(a, S.ms);
-      if (cr) out.push({ key, a, x, src: 'OpsLens', col: S.mv[key] ?? 0, due: cr.due });
+      if (cr) out.push({ key, a, x, src: 'Capsul', col: S.mv[key] ?? 0, due: cr.due });
       else if (S.ms >= a.failMs + DAY)
         out.push({
           key,
@@ -27,7 +27,7 @@ export function items() {
           key,
           a,
           x,
-          src: 'OpsLens',
+          src: 'Capsul',
           col: -1,
           due: S.ms + OFF[x.ty] * DAY,
           score: score(a, st).total
@@ -56,7 +56,7 @@ export function renderActionsView() {
   ];
   const K = kpiData();
 
-  return `<h1>Follow-up actions</h1><p class="lead">OpsLens recommends the corrective action first, with an owner and guidance. A person accepts it, and it closes only when the signal is back at baseline. Preventive and roll-out actions are on each asset page.</p>
+  return `<h1>Follow-up actions</h1><p class="lead">Capsul recommends the corrective action first, with an owner and guidance. A person accepts it, and it closes only when the signal is back at baseline. Preventive and roll-out actions are on each asset page.</p>
 <div class="kp" style="grid-template-columns:repeat(4,1fr)">${kp.map((k) => `<div><small>${k[0]}</small><b>${k[1]}</b></div>`).join('')}</div>
 <div class="chips" style="margin-top:12px" role="group" aria-label="Filter by asset">${['All', ...ASSETS.map((a) => a.tag)].map((t) => `<button class="seg" data-af="${t}" aria-pressed="${S.af === t}">${t}</button>`).join('')}${Object.keys(S.created).length ? '<button class="btn q" data-reset="1">Reset board</button>' : ''}</div>
 <div class="bd">${COLS.map((c, ci) => {

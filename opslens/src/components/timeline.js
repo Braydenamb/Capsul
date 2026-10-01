@@ -31,8 +31,8 @@ export function ribbon() {
   }
   const lab = ASSETS.map(
     (a) =>
-      `<button data-open="${a.tag}" aria-label="Open ${a.tag}"><b>${a.tag}</b><small>${a.lead > 0 ? 'OpsLens ' + a.lead + ' wk ahead' : a.lead < 0 ? 'DCS ' + -a.lead + ' wk first' : 'same week'}</small></button>`
+      `<button data-open="${a.tag}" aria-label="Open ${a.tag}"><b>${a.tag}</b><small>${a.lead > 0 ? 'Capsul ' + a.lead + ' wk ahead' : a.lead < 0 ? 'DCS ' + -a.lead + ' wk first' : 'same week'}</small></button>`
   ).join('');
   return `<div class="rib"><div class="rib-l"><div class="ax"></div>${lab}</div><div class="rib-t" id="ribt" title="Drag to move through time"><div class="axis">${ax}</div>${lanes}<div class="mask" style="left:${pct(S.ms)}%"></div><div class="ph" style="left:${pct(S.ms)}%"></div></div></div>
-  <div class="legend"><span><i class="sw N"></i>Normal</span><span><i class="sw W" style="background:repeating-linear-gradient(135deg,var(--W) 0 4px,color-mix(in srgb,var(--W) 45%,var(--panel)) 4px 7px)"></i>Watch: OpsLens flag, DCS silent</span><span><i class="sw A"></i>Alarm: DCS</span><span><i class="sw T"></i>Trip</span><span><i class="sw R"></i>Recovery after repair</span></div>`;
+  <div class="legend"><span><i class="sw N"></i>Normal</span><span><i class="sw W" style="background:repeating-linear-gradient(135deg,var(--W) 0 4px,color-mix(in srgb,var(--W) 45%,var(--panel)) 4px 7px)"></i>Watch: Capsul flag, DCS silent</span><span><i class="sw A"></i>Alarm: DCS</span><span><i class="sw T"></i>Trip</span><span><i class="sw R"></i>Recovery after repair</span></div>`;
 }

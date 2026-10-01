@@ -4,7 +4,7 @@ import { state as S } from '../core/state.js';
 
 export const EVENTS = [];
 ASSETS.forEach((a) => {
-  if (a.fl >= 0) EVENTS.push([a.t[a.fl], a.tag + ': OpsLens flags ' + a.ns[a.fl] + ' signals']);
+  if (a.fl >= 0) EVENTS.push([a.t[a.fl], a.tag + ': Capsul flags ' + a.ns[a.fl] + ' signals']);
   EVENTS.push([a.t[a.al], a.tag + ': DCS alarm']);
   EVENTS.push([a.failMs, a.tag + ': trip and outage']);
 });
@@ -25,7 +25,7 @@ export function initHeader() {
   headerEl.className = 'bar';
   headerEl.innerHTML = `
     <div class="bar1">
-      <div class="brand">Ops<i>Lens</i></div>
+      <div class="brand">Cap<i>sul</i></div>
       <nav id="tabs" aria-label="Views"></nav>
       <span class="sp"></span>
       <button class="bt pr" id="demo">Guided demo</button>
