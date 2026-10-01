@@ -1,6 +1,6 @@
 import { state as S, LENS } from '../core/state.js';
 import { CUR, kpiData, score, stakeOf, isAct, HE, at, energyAt, FN, ASSETS } from '../core/analytics.js';
-import { dS, fmtK, NM, MON, DAY } from '../core/formatting.js';
+import { dS, fmtK, NM, MON, DAY, sum } from '../core/formatting.js';
 import { INC, MFN, groupBy } from '../core/incidents.js';
 import { chip } from '../components/statusChip.js';
 import { loopFunnel } from '../components/decisionLoop.js';
