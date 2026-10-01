@@ -1,8 +1,8 @@
 import './styles/main.css';
 
 import { state as S } from './core/state.js';
-import { D0, DAY, dS, nf } from './core/formatting.js';
-import { calc, T0, T1, NDAYS, byTag, at, HEALTHY, impRes, clamp } from './core/analytics.js';
+import { D0, DAY, dS, nf, clamp } from './core/formatting.js';
+import { calc, T0, T1, NDAYS, byTag, at, HEALTHY, impRes } from './core/analytics.js';
 import { initHeader, head } from './components/header.js';
 import { cap, capOff, openModal } from './components/modal.js';
 import { tankRows, wvHTML } from './views/command.js';
