@@ -1,5 +1,5 @@
 import { state as S } from '../core/state.js';
-import { byTag, score, at, isAct, ASSETS } from '../core/analytics.js';
+import { byTag, score, at, isAct, ASSETS, getRcaLifecycle } from '../core/analytics.js';
 import { dS, fmtK, nf, MON, DAY, avg, clamp } from '../core/formatting.js';
 import { INC, similar } from '../core/incidents.js';
 import { chip } from '../components/statusChip.js';
