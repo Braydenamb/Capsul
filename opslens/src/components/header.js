@@ -37,6 +37,19 @@ export function getEventMap() {
   return map;
 }
 
+export function getAllDotTimestamps() {
+  const dates = new Set();
+  ASSETS.forEach((a) => {
+    if (a.fl >= 0) dates.add(a.t[a.fl]);
+    if (a.al >= 0) dates.add(a.t[a.al]);
+    if (a.failMs) dates.add(a.failMs);
+  });
+  INC.forEach((i) => {
+    if (i.ms) dates.add(i.ms);
+  });
+  return Array.from(dates).sort((a, b) => a - b);
+}
+
 export const TABS = {
   cmd: 'Command',
   inv: 'Investigate',
@@ -265,13 +278,17 @@ export function initHeader() {
   if (prevBtn) {
     prevBtn.onclick = (e) => {
       e.stopPropagation();
-      const past = EVENTS.filter((evt) => evt[0] < S.ms);
+      const dotMsList = getAllDotTimestamps();
+      const past = dotMsList.filter((ms) => ms < S.ms);
       if (past.length > 0) {
-        S.ms = past[past.length - 1][0];
-      } else if (S.ms > T0) {
-        S.ms = Math.max(S.ms - DAY, T0);
-      } else {
-        S.ms = T1;
+        S.ms = past[past.length - 1];
+      } else if (dotMsList.length > 0) {
+        S.ms = dotMsList[dotMsList.length - 1];
+      }
+      if (calOpen) {
+        calYear = new Date(S.ms).getUTCFullYear();
+        calMonth = new Date(S.ms).getUTCMonth();
+        renderCalendarGrid();
       }
       window.dispatchEvent(new CustomEvent('replay-change'));
     };
@@ -281,13 +298,17 @@ export function initHeader() {
   if (nextBtn) {
     nextBtn.onclick = (e) => {
       e.stopPropagation();
-      const upcoming = EVENTS.filter((evt) => evt[0] > S.ms);
+      const dotMsList = getAllDotTimestamps();
+      const upcoming = dotMsList.filter((ms) => ms > S.ms);
       if (upcoming.length > 0) {
-        S.ms = upcoming[0][0];
-      } else if (S.ms < T1) {
-        S.ms = Math.min(S.ms + DAY, T1);
-      } else {
-        S.ms = T0;
+        S.ms = upcoming[0];
+      } else if (dotMsList.length > 0) {
+        S.ms = dotMsList[0];
+      }
+      if (calOpen) {
+        calYear = new Date(S.ms).getUTCFullYear();
+        calMonth = new Date(S.ms).getUTCMonth();
+        renderCalendarGrid();
       }
       window.dispatchEvent(new CustomEvent('replay-change'));
     };
