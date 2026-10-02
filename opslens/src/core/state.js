@@ -22,7 +22,13 @@ export const state = {
   I: { cap: 40, red: 60, hrs: 6 },
   demo: null,
   play: null,
-  drag: false
+  drag: false,
+  actionHistory: [],
+  dqFilter: { sev: 'All', status: 'All', sort: 'priority' },
+  pinnedTelemetry: null,
+  actType: 'All',
+  actOwner: 'All',
+  actSort: 'priority'
 };
 
 // Aliased as S for internal parity if needed

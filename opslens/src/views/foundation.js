@@ -46,16 +46,37 @@ export const KP_DICT = [
 ];
 
 export function renderFoundationView() {
-  const D = dq(),
-    rs = D.filter((d) => S.res[d.id]).length,
-    pv = (a) => a.r.piMeta.find((x) => x[0].endsWith('_VIB'));
+  const D_all = dq();
+  const pastInc = INC.filter((i) => i.ms <= S.ms);
+  const pastRca = ASSETS.filter((a) => a.failMs <= S.ms);
+  const curDateStr = dS(S.ms, true);
+
+  // Filter Data Quality checks based on state
+  const dqFilter = S.dqFilter || { sev: 'All', status: 'All', sort: 'priority' };
+  let D = D_all.filter((d) => {
+    const isRes = !!S.res[d.id];
+    if (dqFilter.status === 'Resolved' && !isRes) return false;
+    if (dqFilter.status === 'Unresolved' && isRes) return false;
+    if (dqFilter.sev !== 'All' && d.sev !== dqFilter.sev) return false;
+    return true;
+  });
+
+  if (dqFilter.sort === 'priority') {
+    const sevOrder = { High: 1, Medium: 2, Low: 3 };
+    D.sort((p, q) => sevOrder[p.sev] - sevOrder[q.sev]);
+  } else if (dqFilter.sort === 'title') {
+    D.sort((p, q) => p.t.localeCompare(q.t));
+  }
+
+  const rs = D_all.filter((d) => S.res[d.id]).length;
+  const pv = (a) => a.r.piMeta.find((x) => x[0].endsWith('_VIB'));
   const mto = (t) => INC.find((i) => i.tag === t && i.n <= 5);
 
   const sources = [
-    { domain: 'Production Data (DCS/PI)', status: 'Active', freshness: 'Hourly (Latest: 08:00)', records: '105,554 points', quality: '99.2%', used: 'Plant Rate KPI, Anomaly Engine' },
-    { domain: 'Equipment Performance', status: 'Active', freshness: 'Weekly (Latest: 19 Feb)', records: '130 records', quality: '97.5%', used: '3σ Deviation, Asset Availability' },
-    { domain: 'Incident Database', status: 'Active', freshness: 'Per Incident', records: '380 incidents', quality: '96.0%', used: 'Similar Incident Search, Loss Stake' },
-    { domain: 'Downtime & RCA Data', status: 'Active', freshness: 'Post Event', records: '5 detailed RCAs', quality: '100.0%', used: 'AI Root Cause, CAPA Actions' }
+    { domain: 'Production Data (DCS/PI)', status: 'Active', freshness: `Hourly (As of: ${curDateStr})`, records: '105,554 points', quality: '99.2%', used: 'Plant Rate KPI, Anomaly Engine' },
+    { domain: 'Equipment Performance', status: 'Active', freshness: `Weekly (As of: ${curDateStr})`, records: '130 records', quality: '97.5%', used: '3σ Deviation, Asset Availability' },
+    { domain: 'Incident Database', status: 'Active', freshness: `Per Incident`, records: `${pastInc.length} of ${INC.length} incidents logged`, quality: '96.0%', used: 'Similar Incident Search, Loss Stake' },
+    { domain: 'Downtime & RCA Data', status: 'Active', freshness: `Post Event`, records: `${pastRca.length} of ${ASSETS.length} detailed RCAs`, quality: '100.0%', used: 'AI Root Cause, CAPA Actions' }
   ];
 
   const KP = [
@@ -91,7 +112,7 @@ export function renderFoundationView() {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
       <div>
         <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;">Data Foundation & Trust</h1>
-        <p class="mu" style="margin-top:2px;">Governed data architecture: source provenance, lineage, KPI definitions, and audit rules</p>
+        <p class="mu" style="margin-top:2px;">Governed data architecture: source provenance, lineage, KPI definitions, and audit rules as of <b class="mono" style="color:var(--brand);">${curDateStr}</b></p>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <span class="badge badge-blue">
@@ -104,7 +125,7 @@ export function renderFoundationView() {
     <section class="pn" style="margin-top:0;">
       <div class="pn-h">
         <h2>Data Source Domains & Trust Status</h2>
-        <span class="sm mu">Source freshness, coverage, and quality validation</span>
+        <span class="sm mu">Source freshness, coverage, and quality validation as of ${curDateStr}</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:12px;margin-top:10px;">
         ${sources.map(s => `
@@ -241,43 +262,82 @@ export function renderFoundationView() {
       </div>
     </section>
 
-    <!-- Data Quality Checks -->
+    <!-- Bounded & Filterable Data Quality Checks -->
     <section class="pn" style="margin-top:16px;">
-      <div class="pn-h">
-        <h2>Data Quality Rules & Resolution</h2>
-        <span class="sm mu">${rs} of ${D.length} checks resolved</span>
+      <div class="pn-h" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2>Data Quality Rules & Resolution</h2>
+          <span class="sm mu">${rs} of ${D_all.length} checks resolved</span>
+        </div>
+        
+        <!-- Filter/Sort Controls Toolbar -->
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <small class="mu" style="font-weight:600;">PRIORITY:</small>
+            <select data-dqsev="1" style="background:var(--page);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:12px;">
+              <option value="All" ${dqFilter.sev === 'All' ? 'selected' : ''}>All Priorities</option>
+              <option value="High" ${dqFilter.sev === 'High' ? 'selected' : ''}>High</option>
+              <option value="Medium" ${dqFilter.sev === 'Medium' ? 'selected' : ''}>Medium</option>
+              <option value="Low" ${dqFilter.sev === 'Low' ? 'selected' : ''}>Low</option>
+            </select>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:6px;">
+            <small class="mu" style="font-weight:600;">STATUS:</small>
+            <select data-dqstatus="1" style="background:var(--page);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:12px;">
+              <option value="All" ${dqFilter.status === 'All' ? 'selected' : ''}>All Statuses</option>
+              <option value="Unresolved" ${dqFilter.status === 'Unresolved' ? 'selected' : ''}>Unresolved</option>
+              <option value="Resolved" ${dqFilter.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
+            </select>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:6px;">
+            <small class="mu" style="font-weight:600;">SORT:</small>
+            <select data-dqsort="1" style="background:var(--page);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:12px;">
+              <option value="priority" ${dqFilter.sort === 'priority' ? 'selected' : ''}>Priority</option>
+              <option value="title" ${dqFilter.sort === 'title' ? 'selected' : ''}>Rule Title</option>
+            </select>
+          </div>
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:12px;margin-top:10px;">
-        ${D.map((d) => {
-          const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.toLowerCase()),
-            o = d.opts || ['Use ' + lc(d.a[0]), 'Use ' + lc(d.b[0])],
-            r = S.res[d.id];
-          return `
-            <div class="dq ${r ? 'ok' : d.sev === 'Low' ? 'lo' : ''}" style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;">
-                <b>${d.t}</b>
-                <span class="badge ${d.sev === 'High' ? 'badge-red' : d.sev === 'Medium' ? 'badge-amber' : 'badge-gray'}">${d.sev} Priority</span>
-              </div>
-              
-              <div class="ab" style="margin-top:8px;">
-                <div><small class="mu">${d.a[0]}</small><br><span style="font-size:13px;">${d.a[1]}</span></div>
-                <div><small class="mu">${d.b[0]}</small><br><span style="font-size:13px;">${d.b[1]}</span></div>
-              </div>
 
-              <p class="sm mu" style="margin-top:6px;">${d.why}</p>
+      <div class="dq-scroll-container" style="max-height:520px;overflow-y:auto;padding-right:4px;margin-top:10px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:12px;">
+          ${D.map((d) => {
+            const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.toLowerCase()),
+              o = d.opts || ['Use ' + lc(d.a[0]), 'Use ' + lc(d.b[0])],
+              r = S.res[d.id];
+            return `
+              <div class="dq ${r ? 'ok' : d.sev === 'Low' ? 'lo' : ''}" style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <b>${d.t}</b>
+                  <span class="badge ${d.sev === 'High' ? 'badge-red' : d.sev === 'Medium' ? 'badge-amber' : 'badge-gray'}">${d.sev} Priority</span>
+                </div>
+                
+                <div class="ab" style="margin-top:8px;">
+                  <div><small class="mu">${d.a[0]}</small><br><span style="font-size:13px;">${d.a[1]}</span></div>
+                  <div><small class="mu">${d.b[0]}</small><br><span style="font-size:13px;">${d.b[1]}</span></div>
+                </div>
 
-              <div style="margin-top:8px;">
-                ${r ? `
-                  <span class="badge badge-green"><span class="dot dot-green"></span> Golden record: ${r}</span>
-                  <button class="btn q" data-res="${d.id}|" style="margin-left:6px;">Undo</button>
-                ` : `
-                  <button class="btn" data-res="${d.id}|${o[0]}">${o[0].replace(/^./, (c) => c.toUpperCase())}</button>
-                  <button class="btn" data-res="${d.id}|${o[1]}" style="margin-left:4px;">${o[1].replace(/^./, (c) => c.toUpperCase())}</button>
-                `}
+                <!-- Notion-Style Collapsible Progressive Disclosure -->
+                <details class="notion-toggle" style="margin-top:8px;border-top:1px dashed var(--line-subtle);padding-top:6px;">
+                  <summary style="cursor:pointer;color:var(--brand);font-weight:500;font-size:12.5px;">Details & Resolution Context</summary>
+                  <p class="sm mu" style="margin-top:4px;line-height:1.4;">${d.why}</p>
+                </details>
+
+                <div class="bx" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                  ${r ? `
+                    <span class="badge badge-green"><span class="dot dot-green"></span> Golden record: ${r}</span>
+                    <button class="btn q sm" data-res="${d.id}|" style="padding:2px 8px;">Undo</button>
+                  ` : `
+                    <button class="btn" data-res="${d.id}|${o[0]}">${o[0].replace(/^./, (c) => c.toUpperCase())}</button>
+                    <button class="btn" data-res="${d.id}|${o[1]}">${o[1].replace(/^./, (c) => c.toUpperCase())}</button>
+                  `}
+                </div>
               </div>
-            </div>
-          `;
-        }).join('')}
+            `;
+          }).join('') || `<div class="empty" style="font-size:12.5px;padding:12px;text-align:center;">No data quality checks match the selected filter.</div>`}
+        </div>
       </div>
     </section>
   `;

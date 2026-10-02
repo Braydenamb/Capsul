@@ -484,7 +484,7 @@ export function renderInvestigateView() {
             <h3>Recommended Operational Actions</h3>
             <span class="sm mu">Accountable assignment workflow</span>
           </div>
-          <div style="margin-top:10px;">${acts}</div>
+          <div class="act-scroll-container" style="max-height:480px;overflow-y:auto;padding-right:2px;margin-top:10px;">${acts}</div>
         </section>
       </div>
     </div>

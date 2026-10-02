@@ -17,7 +17,17 @@ export function tankRows() {
   let h = rows
     .map(
       (x, n) => `<div class="tk ${x.s.s}" role="button" tabindex="0" data-open="${x.a.tag}" aria-label="${x.a.tag}, ${NM[x.s.s]}, score ${Math.round(x.sc.total)}"><span class="rk">${n + 1}</span>
-  <div><b>${x.a.tag}</b> ${x.a.c.name} <small class="mu">${x.a.c.plant}, ${x.a.r.disc}, class ${x.a.cls}</small> ${chip(x.s.s)}<div class="is">${issueTextLocal(x.a, x.s)}</div></div>
+  <div>
+    <b>${x.a.tag}</b> ${x.a.c.name} <small class="mu">${x.a.c.plant}, ${x.a.r.disc}, class ${x.a.cls}</small> ${chip(x.s.s)}
+    <div class="is">${issueTextLocal(x.a, x.s)}</div>
+    <details class="notion-toggle" style="margin-top:4px;" onclick="event.stopPropagation();">
+      <summary style="cursor:pointer;color:var(--brand);font-weight:500;font-size:11.5px;">Score Drivers & Evidence</summary>
+      <div style="margin-top:3px;font-size:11.5px;color:var(--mute);line-height:1.3;">
+        ${FN.map((f, i) => f + ': ' + x.sc.p[i].toFixed(0)).join(' · ')}
+        ${x.sc.bonus ? ' (Lens bonus: +' + x.sc.bonus + ' pts)' : ''}
+      </div>
+    </details>
+  </div>
   <div class="why" title="${FN.map((f, i) => f + ' ' + x.sc.p[i].toFixed(0)).join(', ')}"><div class="sbar">${x.sc.p.map((p, i) => `<i class="f${i + 1}" style="width:${p}%"></i>`).join('')}</div><small>${x.sc.bonus ? 'Lens adds ' + x.sc.bonus + ' points' : 'What drives the score'}</small></div>
   <div class="sc">${Math.round(x.sc.total)}<small>of 100</small></div></div>`
     )
@@ -319,7 +329,7 @@ export function renderCommandView() {
           <h2>CAPA Action & Problem Queue</h2>
           <span class="sm mu">Ranked by risk priority index (0–100)</span>
         </div>
-        <div id="tankrows">${tankRows()}</div>
+        <div id="tankrows" class="queue-scroll-container" style="max-height:520px;overflow-y:auto;padding-right:2px;">${tankRows()}</div>
         <div class="legend" style="margin-top:6px;font-size:11.5px;">${FN.map((f, i) => `<span><i class="sw" style="background:var(--f${i + 1})"></i>${f}</span>`).join('')}</div>
       </section>
     </div>

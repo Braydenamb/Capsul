@@ -4,23 +4,136 @@ import { INC, MFN, groupBy, OPEN } from '../core/incidents.js';
 import { dS, fmtK, avg, sum } from '../core/formatting.js';
 
 export function renderImpactView() {
-  const tl = sum(INC.map((i) => i.loss)),
-    td = sum(INC.map((i) => i.dt)),
-    pool = INC.filter((i) => ADDR.includes(i.mf)),
-    pl = sum(pool.map((i) => i.loss)),
-    g = groupBy(INC, (i) => i.mf),
-    mx = g[0].loss;
+  const pastInc = INC.filter((i) => i.ms <= S.ms);
+  const curDateStr = dS(S.ms, true);
+  const tl = sum(pastInc.map((i) => i.loss));
+  const td = sum(pastInc.map((i) => i.dt));
+  const pool = pastInc.filter((i) => ADDR.includes(i.mf));
+  const pl = sum(pool.map((i) => i.loss));
+  const g = groupBy(pastInc.length > 0 ? pastInc : INC, (i) => i.mf);
+  const mx = (g[0] && g[0].loss) || 1;
 
-  return `<h1>Business impact</h1><p class="lead">What the early warning was worth in the five RCA cases, and what it could be worth across the whole Incident DB. Assumptions are adjustable.</p>
-<section class="pn hero"><div class="pn-h"><h2>Measured in this replay</h2><span class="sm mu">Five failures, real dates and losses</span></div>
-<div class="tb"><table><tr><th>Asset</th><th>Capsul flag</th><th>DCS alarm</th><th>Trip</th><th class="r">Ahead of DCS</th><th class="r">Ahead of trip</th><th class="r">Downtime</th><th class="r">Loss</th></tr>${ASSETS.map((a) => `<tr class="click" tabindex="0" data-open="${a.tag}"><td><b>${a.tag}</b></td><td>${dS(a.t[a.fl], true)}</td><td>${dS(a.t[a.al], true)}</td><td>${dS(a.failMs, true)}</td><td class="r num">${a.lead > 0 ? a.lead + ' wk' : a.lead < 0 ? 'DCS first by ' + -a.lead + ' wk' : 'same week'}</td><td class="r num">${a.leadFail} wk</td><td class="r num">${a.r.dt} h</td><td class="r num">${fmtK(a.r.loss)}</td></tr>`).join('')}
-<tr><td><b>Total</b></td><td colspan="3"></td><td class="r num"><b>${avg(ASSETS.map((a) => a.lead)).toFixed(1)} wk avg</b></td><td class="r num"><b>${avg(ASSETS.map((a) => a.leadFail)).toFixed(1)} wk avg</b></td><td class="r num"><b>${sum(ASSETS.map((a) => a.r.dt))} h</b></td><td class="r num"><b>${fmtK(sum(ASSETS.map((a) => a.r.loss)))}</b></td></tr></table></div>
-<p class="note">The flag rule raised no flag in ${HEALTHY.n} healthy weeks (${HEALTHY.fp} false flags). On BL-5702 the DCS alarmed first, so the value there is the named cause and the action, not lead time. Lead time only pays off if someone acts on it, which is why the tracker matters.</p></section>
-${scorecard()}
- <section class="pn"><div class="pn-h"><h2>Scenario for the whole plant estate</h2><span class="tag">scenario · not realized savings</span></div>
-<div class="wk"><label>Share of addressable failures caught early: <b class="num" id="v-cap">${S.I.cap}%</b><input type="range" min="0" max="100" value="${S.I.cap}" data-im="cap" aria-label="Share caught early"></label><label>Share of loss avoided when caught early: <b class="num" id="v-red">${S.I.red}%</b><input type="range" min="0" max="100" value="${S.I.red}" data-im="red" aria-label="Share of loss avoided"></label><label>Validation hours saved per incident: <b class="num" id="v-hrs">${S.I.hrs} h</b><input type="range" min="0" max="20" value="${S.I.hrs}" data-im="hrs" aria-label="Hours saved per incident"></label></div>
-<div id="imres">${impRes()}</div>
-<p class="note">Base numbers are real: ${INC.length} incidents, ${Math.round(td).toLocaleString('en-US')} h and ${fmtK(tl)} from Jan 2024 to Jul 2026 (${SPAN.toFixed(1)} years). Addressable means failure modes that show up in condition data first: leakage, vibration, overheating, fouling, wear, loosening and cracking. That is ${Math.round((pl / tl) * 100)}% of the loss.</p></section>
-<div class="g2"><section class="pn"><div class="pn-h"><h3>Loss by failure mechanism</h3></div>${g.map((x) => `<div class="bl ${ADDR.includes(x.k) ? '' : 'dim'}" style="grid-template-columns:120px 1fr 100px"><span class="n" style="font-weight:500">${MFN[x.k]}</span><span class="b" style="width:${(x.loss / mx) * 100}%"></span><span class="v num">${fmtK(x.loss)}</span></div>`).join('')}<p class="note">Dark bars are addressable by early warning.</p></section>
-<section class="pn"><div class="pn-h"><h3>Beyond loss</h3></div><p class="sm"><b>Faster decisions.</b> Teams stop reconciling reports first. The data-quality panel already surfaces ${dq().length} conflicts a team would otherwise find in a meeting.</p><p class="sm" style="margin-top:8px"><b>Safer follow-through.</b> ${INC.filter((i) => OPEN.includes(i.status)).length} incidents are open, ${INC.filter((i) => OPEN.includes(i.status) && !i.ar).length} of them without an AR number. One board with owners and verified closure removes that blind spot.</p><p class="sm" style="margin-top:8px"><b>Knowledge kept.</b> Every RCA becomes searchable, so a new engineer sees what the last one learned.</p></section></div>`;
+  const realizedAssets = ASSETS.map((a) => {
+    const hasFailed = S.ms >= a.failMs;
+    return {
+      tag: a.tag,
+      flagDate: a.fl >= 0 ? dS(a.t[a.fl], true) : 'N/A',
+      alarmDate: a.al >= 0 ? dS(a.t[a.al], true) : 'N/A',
+      tripDate: hasFailed ? dS(a.failMs, true) : `<span style="color:var(--mute);font-style:italic;">Not occurred as of ${curDateStr}</span>`,
+      leadDcs: a.lead > 0 ? a.lead + ' wk' : a.lead < 0 ? 'DCS first by ' + -a.lead + ' wk' : 'same week',
+      leadTrip: hasFailed ? a.leadFail + ' wk' : '<span style="color:var(--mute);">Pending</span>',
+      dt: hasFailed ? a.r.dt : 0,
+      loss: hasFailed ? a.r.loss : 0,
+      hasFailed
+    };
+  });
+
+  const totalDt = sum(realizedAssets.map(x => x.dt));
+  const totalLoss = sum(realizedAssets.map(x => x.loss));
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+      <div>
+        <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;">Business Impact & Value Realization</h1>
+        <p class="mu" style="margin-top:2px;">Measured ROI from early warning flags vs actual plant incidents as of <b class="mono" style="color:var(--brand);">${curDateStr}</b></p>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="badge badge-green">
+          <span class="dot dot-green"></span> Evaluated Up to ${curDateStr}
+        </span>
+      </div>
+    </div>
+
+    <section class="pn hero" style="margin-top:0;">
+      <div class="pn-h">
+        <h2>Measured Realized Failures</h2>
+        <span class="sm mu">Asset failures and early warning lead times up to ${curDateStr}</span>
+      </div>
+      <div class="tb" style="margin-top:10px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Capsul Flag</th>
+              <th>DCS Alarm</th>
+              <th>Trip Date</th>
+              <th class="r">Ahead of DCS</th>
+              <th class="r">Ahead of Trip</th>
+              <th class="r">Downtime</th>
+              <th class="r">Realized Loss</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${realizedAssets.map((a) => `
+              <tr class="click" tabindex="0" data-open="${a.tag}">
+                <td><b style="color:var(--brand);">${a.tag}</b></td>
+                <td class="mono">${a.flagDate}</td>
+                <td class="mono">${a.alarmDate}</td>
+                <td class="mono">${a.tripDate}</td>
+                <td class="r num">${a.leadDcs}</td>
+                <td class="r num">${a.leadTrip}</td>
+                <td class="r num">${a.dt} h</td>
+                <td class="r num">${fmtK(a.loss)}</td>
+              </tr>
+            `).join('')}
+            <tr>
+              <td><b>Total Realized (as of ${curDateStr})</b></td>
+              <td colspan="3"></td>
+              <td class="r num"><b>${avg(ASSETS.map((a) => a.lead)).toFixed(1)} wk avg</b></td>
+              <td class="r num"><b>${avg(ASSETS.map((a) => a.leadFail)).toFixed(1)} wk avg</b></td>
+              <td class="r num"><b>${totalDt} h</b></td>
+              <td class="r num"><b>${fmtK(totalLoss)}</b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note" style="margin-top:10px;">The flag rule raised no flag in ${HEALTHY.n} healthy weeks (${HEALTHY.fp} false flags). On BL-5702 the DCS alarmed first, so the value there is the named cause and the action, not lead time.</p>
+    </section>
+
+    ${scorecard()}
+
+    <section class="pn" style="margin-top:16px;">
+      <div class="pn-h">
+        <h2>Scenario for the Whole Plant Estate</h2>
+        <span class="tag">scenario · estimated value model</span>
+      </div>
+      <div class="wk" style="margin-top:10px;">
+        <label>Share of addressable failures caught early: <b class="num" id="v-cap">${S.I.cap}%</b><input type="range" min="0" max="100" value="${S.I.cap}" data-im="cap" aria-label="Share caught early"></label>
+        <label>Share of loss avoided when caught early: <b class="num" id="v-red">${S.I.red}%</b><input type="range" min="0" max="100" value="${S.I.red}" data-im="red" aria-label="Share of loss avoided"></label>
+        <label>Validation hours saved per incident: <b class="num" id="v-hrs">${S.I.hrs} h</b><input type="range" min="0" max="20" value="${S.I.hrs}" data-im="hrs" aria-label="Hours saved per incident"></label>
+      </div>
+      <div id="imres" style="margin-top:12px;">${impRes()}</div>
+      <p class="note" style="margin-top:10px;">Numbers logged up to ${curDateStr}: ${pastInc.length} of ${INC.length} incidents logged (${Math.round(td).toLocaleString('en-US')} h downtime, ${fmtK(tl)} loss). Addressable failure modes (leakage, vibration, overheating, fouling, wear, loosening, cracking) account for ${tl > 0 ? Math.round((pl / tl) * 100) : 0}% of cumulative loss.</p>
+    </section>
+
+    <div class="g2" style="margin-top:16px;">
+      <section class="pn">
+        <div class="pn-h">
+          <h3>Loss by Failure Mechanism</h3>
+          <span class="sm mu">Incidents prior to ${curDateStr}</span>
+        </div>
+        <div style="margin-top:10px;">
+          ${g.map((x) => `
+            <div class="bl ${ADDR.includes(x.k) ? '' : 'dim'}" style="grid-template-columns:130px 1fr 100px;margin-top:4px;">
+              <span class="n" style="font-weight:500">${MFN[x.k]}</span>
+              <span class="b" style="width:${(x.loss / mx) * 100}%"></span>
+              <span class="v num">${fmtK(x.loss)}</span>
+            </div>
+          `).join('')}
+        </div>
+        <p class="note" style="margin-top:10px;">Dark bars are addressable by early warning condition monitoring.</p>
+      </section>
+
+      <section class="pn">
+        <div class="pn-h">
+          <h3>Beyond Financial Loss</h3>
+        </div>
+        <div style="margin-top:10px;">
+          <p class="sm"><b>Faster decisions.</b> Teams stop reconciling reports first. The data-quality panel already surfaces ${dq().length} governed conflicts a team would otherwise find in a meeting.</p>
+          <p class="sm" style="margin-top:8px"><b>Safer follow-through.</b> ${pastInc.filter((i) => OPEN.includes(i.status)).length} incidents are open as of ${curDateStr}, ${pastInc.filter((i) => OPEN.includes(i.status) && !i.ar).length} of them without an AR number. One board with owners and verified closure removes that blind spot.</p>
+          <p class="sm" style="margin-top:8px"><b>Knowledge kept.</b> Every RCA becomes searchable, so a new engineer sees what the last one learned.</p>
+        </div>
+      </section>
+    </div>
+  `;
 }

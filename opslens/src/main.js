@@ -117,6 +117,36 @@ export function verifyMsg(a) {
   return `Not yet. ${a.sig[0].n} is ${s.i >= 0 ? fmtSig(a, 0, Math.min(s.i, 25)) : 'not monitored'}, still off its baseline of ${nf(a.base[0].m)} ${a.sig[0].u}. Move the timeline to ${dS(a.t[21], true)} or later to verify.`;
 }
 
+export function pushActionState(desc) {
+  if (!S.actionHistory) S.actionHistory = [];
+  S.actionHistory.push({
+    desc,
+    created: JSON.stringify(S.created),
+    ack: JSON.stringify(S.ack),
+    fb: JSON.stringify(S.fb),
+    mv: JSON.stringify(S.mv),
+    dis: JSON.stringify(S.dis),
+    res: JSON.stringify(S.res)
+  });
+}
+
+export function undoLastAction() {
+  if (!S.actionHistory || S.actionHistory.length === 0) {
+    cap('No action to undo.', 2000);
+    return;
+  }
+  const snap = S.actionHistory.pop();
+  S.created = JSON.parse(snap.created);
+  S.ack = JSON.parse(snap.ack);
+  S.fb = JSON.parse(snap.fb);
+  S.mv = JSON.parse(snap.mv);
+  S.dis = JSON.parse(snap.dis);
+  S.res = JSON.parse(snap.res);
+  render();
+  cap(`<b>Action undone:</b> ${snap.desc}`, 3500);
+}
+window.undoLastAction = undoLastAction;
+
 // Global click event delegation
 document.addEventListener('click', (e) => {
   const t = e.target;
@@ -218,30 +248,33 @@ document.addEventListener('click', (e) => {
     S.inc = S.inc === +q.inc ? null : +q.inc;
     render();
   } else if (q.mk) {
+    pushActionState('Create Action Assignment');
     S.created[q.mk] = {
       ms: S.ms,
       due: S.ms + OFF[byTag(q.mk.split('|')[0]).c.acts[+q.mk.split('|')[1]].ty] * DAY
     };
     delete S.dis[q.mk];
     render();
-    cap('<b>Action created.</b> It is on the Actions board and counted as open.', 3500);
+    cap('<b>Action created.</b> It is on the Actions board. <button class="btn q sm" onclick="window.undoLastAction()" style="margin-left:8px;padding:2px 8px;font-size:12px;font-weight:600;color:var(--brand);">Undo</button>', 5000);
   } else if (q.ack) {
+    pushActionState('Acknowledge Alert');
     S.ack[q.ack] = S.ms;
     render();
-    cap('<b>Alert acknowledged.</b> The escalation clock stops.', 3000);
+    cap('<b>Alert acknowledged.</b> Escalation clock stopped. <button class="btn q sm" onclick="window.undoLastAction()" style="margin-left:8px;padding:2px 8px;font-size:12px;font-weight:600;color:var(--brand);">Undo</button>', 4500);
   } else if (q.fb) {
+    pushActionState('Cause Verification Feedback');
     const [tag, v] = q.fb.split('|');
     S.fb[tag] = v;
     render();
     cap(
-      '<b>Saved to the knowledge base.</b> Your ' +
-        (v === 'y' ? 'confirmation raises' : 'rejection lowers') +
-        ' the weight of this cause for similar alerts.',
-      4000
+      '<b>Saved to knowledge base.</b> <button class="btn q sm" onclick="window.undoLastAction()" style="margin-left:8px;padding:2px 8px;font-size:12px;font-weight:600;color:var(--brand);">Undo</button>',
+      4500
     );
   } else if (q.dis) {
+    pushActionState('Dismiss Recommendation');
     S.dis[q.dis] = 1;
     render();
+    cap('<b>Recommendation dismissed.</b> <button class="btn q sm" onclick="window.undoLastAction()" style="margin-left:8px;padding:2px 8px;font-size:12px;font-weight:600;color:var(--brand);">Undo</button>', 4500);
   } else if (q.mv) {
     const [tag, n] = q.mv.split('|'),
       a = byTag(tag),
@@ -252,28 +285,38 @@ document.addEventListener('click', (e) => {
         cap(verifyMsg(a), 6000);
         return;
       }
+      pushActionState('Verify & Close Action');
       S.mv[q.mv] = 3;
       cap(
-        `<b>Verified.</b> ${a.sig[0].n} is back at ${fmtSig(a, 0, Math.min(at(a, S.ms).i, 25))}. Action closed.`,
-        4500
+        `<b>Verified.</b> ${a.sig[0].n} is back at baseline. Action closed. <button class="btn q sm" onclick="window.undoLastAction()" style="margin-left:8px;padding:2px 8px;font-size:12px;font-weight:600;color:var(--brand);">Undo</button>`,
+        5000
       );
-    } else S.mv[q.mv] = it.col + 1;
+    } else {
+      pushActionState('Transition Action Stage');
+      S.mv[q.mv] = it.col + 1;
+      cap('<b>Action stage updated.</b> <button class="btn q sm" onclick="window.undoLastAction()" style="margin-left:8px;padding:2px 8px;font-size:12px;font-weight:600;color:var(--brand);">Undo</button>', 4500);
+    }
     render();
   } else if (q.res) {
+    pushActionState('Data Quality Resolution');
     const [id, v] = q.res.split('|');
     if (v) S.res[id] = v;
     else delete S.res[id];
     render();
+    cap('<b>Golden record decision saved.</b> <button class="btn q sm" onclick="window.undoLastAction()" style="margin-left:8px;padding:2px 8px;font-size:12px;font-weight:600;color:var(--brand);">Undo</button>', 4500);
   } else if (q.af) {
     S.af = q.af;
     render();
   } else if (q.reset) {
+    pushActionState('Reset Board State');
     S.created = {};
     S.ack = {};
     S.fb = {};
     S.mv = {};
     S.dis = {};
+    S.res = {};
     render();
+    cap('<b>Board state reset.</b> <button class="btn q sm" onclick="window.undoLastAction()" style="margin-left:8px;padding:2px 8px;font-size:12px;font-weight:600;color:var(--brand);">Undo</button>', 4500);
   }
 });
 
@@ -316,6 +359,15 @@ document.addEventListener('change', (e) => {
     render();
   } else if (t.dataset.actsort) {
     S.actSort = t.value;
+    render();
+  } else if (t.dataset.dqsev) {
+    S.dqFilter.sev = t.value;
+    render();
+  } else if (t.dataset.dqstatus) {
+    S.dqFilter.status = t.value;
+    render();
+  } else if (t.dataset.dqsort) {
+    S.dqFilter.sort = t.value;
     render();
   }
 });

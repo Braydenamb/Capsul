@@ -1052,4 +1052,50 @@ svg text{font-size:max(12px,var(--svgt,11px))}
   }
 }
 
+/* Stage #3.4 Bounded Scroll Containers & Notion Toggles */
+.queue-scroll-container, .act-scroll-container, .dq-scroll-container, .col-cards-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.queue-scroll-container::-webkit-scrollbar,
+.act-scroll-container::-webkit-scrollbar,
+.dq-scroll-container::-webkit-scrollbar,
+.col-cards-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.queue-scroll-container::-webkit-scrollbar-thumb,
+.act-scroll-container::-webkit-scrollbar-thumb,
+.dq-scroll-container::-webkit-scrollbar-thumb,
+.col-cards-scroll::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+
+.notion-toggle summary {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+  font-weight: 500;
+  color: var(--brand);
+}
+.notion-toggle summary::-webkit-details-marker {
+  display: none;
+}
+.notion-toggle summary::before {
+  content: '▸';
+  font-size: 11px;
+  display: inline-block;
+  transition: transform 150ms ease-out;
+  color: var(--brand);
+}
+.notion-toggle[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.num, .mono, [data-num] {
+  font-variant-numeric: tabular-nums;
+}
+
 
