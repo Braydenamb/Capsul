@@ -14,7 +14,7 @@ export const DEMO_USERS = [
     allowedLenses: ['Operations', 'Maintenance'],
     defaultView: 'cmd',
     allowedViews: ['cmd', 'inv', 'act', 'fnd'],
-    permissions: ['ack', 'createAction']
+    permissions: ['ack', 'action:create', 'createAction', 'action:start', 'action:submit']
   },
   {
     username: 'maint',
@@ -26,7 +26,17 @@ export const DEMO_USERS = [
     allowedLenses: ['Maintenance', 'Operations', 'HSE'],
     defaultView: 'cmd',
     allowedViews: ['cmd', 'inv', 'act', 'fnd'],
-    permissions: ['ack', 'createAction', 'verifyAction']
+    permissions: [
+      'ack',
+      'action:create',
+      'createAction',
+      'action:dismiss',
+      'action:start',
+      'action:submit',
+      'action:verify',
+      'verifyAction',
+      'action:defer'
+    ]
   },
   {
     username: 'hse',
@@ -38,7 +48,7 @@ export const DEMO_USERS = [
     allowedLenses: ['HSE', 'Operations'],
     defaultView: 'cmd',
     allowedViews: ['cmd', 'inv', 'act', 'fnd'],
-    permissions: ['ack', 'createAction']
+    permissions: ['ack', 'action:create', 'createAction']
   },
   {
     username: 'exec',
@@ -50,7 +60,17 @@ export const DEMO_USERS = [
     allowedLenses: ['Management', 'Operations', 'Maintenance', 'Energy', 'HSE'],
     defaultView: 'cmd',
     allowedViews: ['cmd', 'inv', 'act', 'fnd', 'imp'],
-    permissions: ['ack', 'createAction', 'verifyAction']
+    permissions: [
+      'ack',
+      'action:create',
+      'createAction',
+      'action:dismiss',
+      'action:start',
+      'action:submit',
+      'action:verify',
+      'verifyAction',
+      'action:defer'
+    ]
   },
   {
     username: 'admin',

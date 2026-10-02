@@ -8,7 +8,7 @@ import { cap, capOff, openModal } from './components/modal.js';
 import { tankRows, wvHTML } from './views/command.js';
 import { OFF, fmtSig } from './views/investigate.js';
 import { items } from './views/actions.js';
-import { initAuth, isAuthenticated, canAccessView, getCurrentUser } from './auth/auth.js';
+import { initAuth, isAuthenticated, canAccessView, getCurrentUser, canPerform } from './auth/auth.js';
 import { renderLoginView } from './components/login.js';
 
 import { renderCommandView } from './views/command.js';
@@ -248,6 +248,10 @@ document.addEventListener('click', (e) => {
     S.inc = S.inc === +q.inc ? null : +q.inc;
     render();
   } else if (q.mk) {
+    if (!canPerform('action:create') && !canPerform('createAction')) {
+      cap('<b>Unauthorized:</b> Your role cannot create actions.', 3500);
+      return;
+    }
     pushActionState('Create Action Assignment');
     S.created[q.mk] = {
       ms: S.ms,
@@ -271,6 +275,10 @@ document.addEventListener('click', (e) => {
       4500
     );
   } else if (q.dis) {
+    if (!canPerform('action:dismiss')) {
+      cap('<b>Unauthorized:</b> Dismissing recommendations requires Reliability or Executive role.', 3500);
+      return;
+    }
     pushActionState('Dismiss Recommendation');
     S.dis[q.dis] = 1;
     render();
@@ -280,7 +288,22 @@ document.addEventListener('click', (e) => {
       a = byTag(tag),
       it = items().find((i) => i.key === q.mv);
     if (!it) return;
-    if (it.col === 2) {
+
+    if (it.col === 0) {
+      if (!canPerform('action:start')) {
+        cap('<b>Unauthorized:</b> Starting work requires Operations, Maintenance, or Admin role.', 3500);
+        return;
+      }
+    } else if (it.col === 1) {
+      if (!canPerform('action:submit')) {
+        cap('<b>Unauthorized:</b> Submitting for verification requires Operations, Maintenance, or Admin role.', 3500);
+        return;
+      }
+    } else if (it.col === 2) {
+      if (!canPerform('action:verify') && !canPerform('verifyAction')) {
+        cap('<b>Unauthorized:</b> Verification and closure requires Reliability, Executive, or Admin role.', 3500);
+        return;
+      }
       if (at(a, S.ms).i < 21) {
         cap(verifyMsg(a), 6000);
         return;
@@ -291,11 +314,13 @@ document.addEventListener('click', (e) => {
         `<b>Verified.</b> ${a.sig[0].n} is back at baseline. Action closed. <button class="btn q sm" onclick="window.undoLastAction()" style="margin-left:8px;padding:2px 8px;font-size:12px;font-weight:600;color:var(--brand);">Undo</button>`,
         5000
       );
-    } else {
-      pushActionState('Transition Action Stage');
-      S.mv[q.mv] = it.col + 1;
-      cap('<b>Action stage updated.</b> <button class="btn q sm" onclick="window.undoLastAction()" style="margin-left:8px;padding:2px 8px;font-size:12px;font-weight:600;color:var(--brand);">Undo</button>', 4500);
+      render();
+      return;
     }
+
+    pushActionState('Transition Action Stage');
+    S.mv[q.mv] = it.col + 1;
+    cap('<b>Action stage updated.</b> <button class="btn q sm" onclick="window.undoLastAction()" style="margin-left:8px;padding:2px 8px;font-size:12px;font-weight:600;color:var(--brand);">Undo</button>', 4500);
     render();
   } else if (q.res) {
     pushActionState('Data Quality Resolution');

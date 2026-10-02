@@ -62,8 +62,11 @@ export function renderActionsView() {
     ['Overdue Assignments', all.filter(od).length],
     ['Awaiting Verification', all.filter((i) => i.col === 2).length]
   ];
-  const canCreate = canPerform('createAction');
-  const canVerify = canPerform('verifyAction');
+  const canCreate = canPerform('action:create') || canPerform('createAction');
+  const canDismiss = canPerform('action:dismiss');
+  const canStart = canPerform('action:start');
+  const canSubmit = canPerform('action:submit');
+  const canVerify = canPerform('action:verify') || canPerform('verifyAction');
   const activeStage = S.actionStage ?? -1;
   const currentSort = S.actSort || 'priority';
 
@@ -179,14 +182,14 @@ export function renderActionsView() {
 
                   <div class="bx" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
                     ${col === -1 ? `
-                      <button class="btn pr" data-mk="${i.key}" ${canCreate ? '' : 'disabled title="Role cannot create actions"'}>Create Action</button>
-                      <button class="btn q" data-dis="${i.key}">Dismiss</button>
+                      <button class="btn pr" data-mk="${i.key}" ${canCreate ? '' : 'disabled title="Your role cannot create action assignments"'}>Create Action</button>
+                      <button class="btn q" data-dis="${i.key}" ${canDismiss ? '' : 'disabled title="Dismissing recommendations requires Reliability or Executive role"'}>Dismiss</button>
                     ` : col === 0 ? `
-                      <button class="btn" data-mv="${i.key}">Start Work</button>
+                      <button class="btn" data-mv="${i.key}" ${canStart ? '' : 'disabled title="Starting work requires Operations, Maintenance, or Admin role"'}>Start Work</button>
                     ` : col === 1 ? `
-                      <button class="btn" data-mv="${i.key}">Send to Verification</button>
+                      <button class="btn" data-mv="${i.key}" ${canSubmit ? '' : 'disabled title="Submitting for verification requires Operations, Maintenance, or Admin role"'}>Send to Verification</button>
                     ` : col === 2 ? `
-                      <button class="btn pr" data-mv="${i.key}" ${canVerify ? '' : 'disabled title="Verification requires Reliability or Admin role"'}>Verify & Close</button>
+                      <button class="btn pr" data-mv="${i.key}" ${canVerify ? '' : 'disabled title="Verification and closure requires Reliability or Executive role"'}>Verify & Close</button>
                     ` : `
                       <span class="badge badge-green"><span class="dot dot-green"></span> Completed</span>
                     `}

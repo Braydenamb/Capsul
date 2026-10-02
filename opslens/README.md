@@ -10,11 +10,11 @@ Capsul features persona-based authentication and role-based access control (RBAC
 
 | Role | Username | Password | Default Lens | Accessible Views | Permissions |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Operations Lead** | `ops` | `ops` | Operations | Command, Investigate, Actions, Foundation | Acknowledge alert, Create action |
-| **Reliability Engineer** | `maint` | `maint` | Maintenance | Command, Investigate, Actions, Foundation | Acknowledge alert, Create action, Verify & Close |
+| **Operations Lead** | `ops` | `ops` | Operations | Command, Investigate, Actions, Foundation | Acknowledge alert, Create action, Start work, Send to verification |
+| **Reliability Engineer** | `maint` | `maint` | Maintenance | Command, Investigate, Actions, Foundation | Acknowledge alert, Create action, Dismiss recommendation, Start work, Send to verification, Verify & Close |
 | **HSE Coordinator** | `hse` | `hse` | HSE | Command, Investigate, Actions, Foundation | Acknowledge alert, Create action |
-| **Plant Manager / Exec** | `exec` | `exec` | Management | All views (Command, Investigate, Actions, Foundation, Impact) | Acknowledge alert, Create action, Verify & Close |
-| **System Admin** | `admin` | `admin` | Operations | All views | Full administrative permissions |
+| **Plant Manager / Exec** | `exec` | `exec` | Management | All views (Command, Investigate, Actions, Foundation, Impact) | Full action governance & executive verification, All views |
+| **System Admin** | `admin` | `admin` | Operations | All views | Full administrative permissions (`*`) |
 
 ---
 
