@@ -1,4 +1,4 @@
-import { ASSETS, T0, NDAYS } from '../core/analytics.js';
+import { ASSETS, T0, T1, NDAYS } from '../core/analytics.js';
 import { DAY, DOW, dS, fmtK } from '../core/formatting.js';
 import { INC } from '../core/incidents.js';
 import { state as S } from '../core/state.js';
@@ -162,10 +162,18 @@ export function initHeader() {
   const user = getCurrentUser();
   if (!user) {
     headerEl.style.display = 'none';
+    headerEl.innerHTML = '';
+    delete headerEl.dataset.currentUser;
     return;
   }
   headerEl.style.display = '';
   headerEl.className = 'single-header';
+
+  // Only bypass full rebuild if header is initialized for the matching user
+  if (headerEl.querySelector('.header-inner') && headerEl.dataset.currentUser === user.username) {
+    return;
+  }
+  headerEl.dataset.currentUser = user.username;
 
   headerEl.innerHTML = `
     <div class="header-inner">
@@ -260,8 +268,12 @@ export function initHeader() {
       const past = EVENTS.filter((evt) => evt[0] < S.ms);
       if (past.length > 0) {
         S.ms = past[past.length - 1][0];
-        window.dispatchEvent(new CustomEvent('replay-change'));
+      } else if (S.ms > T0) {
+        S.ms = Math.max(S.ms - DAY, T0);
+      } else {
+        S.ms = T1;
       }
+      window.dispatchEvent(new CustomEvent('replay-change'));
     };
   }
 
@@ -272,8 +284,12 @@ export function initHeader() {
       const upcoming = EVENTS.filter((evt) => evt[0] > S.ms);
       if (upcoming.length > 0) {
         S.ms = upcoming[0][0];
-        window.dispatchEvent(new CustomEvent('replay-change'));
+      } else if (S.ms < T1) {
+        S.ms = Math.min(S.ms + DAY, T1);
+      } else {
+        S.ms = T0;
       }
+      window.dispatchEvent(new CustomEvent('replay-change'));
     };
   }
 

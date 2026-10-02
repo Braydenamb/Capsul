@@ -62,7 +62,10 @@ export function renderLoginView(onSuccess) {
         </div>
 
         <div class="login-footer">
-          <small class="mu">Authorized manufacturing personnel only · Capsul v1.0</small>
+          <small class="mu" style="display:block;">Authorized manufacturing personnel only · Capsul v1.0</small>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line-subtle);font-size:12px;color:var(--mute);">
+            Developed by <b style="color:var(--brand);">komen chud</b> team &middot; Built for <b style="color:var(--brand);">CALIBER 2026</b>
+          </div>
         </div>
       </div>
     </div>
