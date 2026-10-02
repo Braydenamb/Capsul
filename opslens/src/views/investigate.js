@@ -301,20 +301,58 @@ export function outage(a) {
   });
   let c2 = `<svg viewBox="0 0 ${W} 82" role="img" aria-label="${a.c.pi.n} from hourly PI data">${rect(60)}${ticks}<polyline points="${P.map((p, i) => X(i) + ',' + Y2(p[k])).join(' ')}" fill="none" stroke="var(--brand)" stroke-width="1.8"/><text x="${pl - 4}" y="14" text-anchor="end">${nf(hi)}</text><text x="${pl - 4}" y="60" text-anchor="end">${nf(lo)}</text><text x="${W - pr}" y="14" text-anchor="end">${a.c.pi.n}, ${a.c.pi.u} (hourly PI)</text></svg>`;
 
-  return `<div class="pn-h"><h3>What the failure cost</h3><span class="sm mu">${S.ms < a.failMs ? 'Has not happened yet on this date. This is the cost of not acting.' : 'Hourly PI data, 72 hours around the trip'}</span></div>${c1}${c2}
-  <div class="stat4"><div><b class="num">${a.r.dt} h</b><small>Unplanned downtime (RCA)</small></div><div><b class="num">${nf(a.r.prodLoss)} t</b><small>Production lost</small></div><div><b class="num">${fmtK(a.r.loss)}</b><small>Loss</small></div><div><b class="num">${a.r.piOff} h</b><small>Hours at zero feed in PI</small></div></div>
-  <p class="note">${a.c.chrono}</p>`;
+  const isPostRecovery = S.ms >= a.t[21];
+  const isDuringOutage = S.ms >= a.failMs && !isPostRecovery;
+
+  const headerTitle = isPostRecovery
+    ? 'Historical Failure Evidence'
+    : 'Failure Consequence';
+
+  const subTitle = isPostRecovery
+    ? `Historical RCA record — Trip occurred on ${dS(a.failMs, true)} (Recovery completed)`
+    : `Active outage timeline — Hourly PI data (72 hours around trip on ${dS(a.failMs, true)})`;
+
+  return `<div class="pn-h">
+    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;flex-wrap:wrap;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <h3>${headerTitle}</h3>
+        <span class="badge ${isDuringOutage ? 'badge-red' : 'badge-gray'}" style="font-size:11px;">
+          ${isDuringOutage ? 'OUTAGE IN PROGRESS' : 'HISTORICAL RECORD'}
+        </span>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;font-size:11.5px;">
+        <span class="badge badge-red" style="padding:2px 6px;font-size:11px;">1. Trip (${dS(a.failMs, true)})</span>
+        <span style="color:var(--mute)">→</span>
+        <span class="badge ${isDuringOutage ? 'badge-red' : 'badge-amber'}" style="padding:2px 6px;font-size:11px;">2. Outage (${a.r.dt} h)</span>
+        <span style="color:var(--mute)">→</span>
+        <span class="badge ${isPostRecovery ? 'badge-green' : 'badge-gray'}" style="padding:2px 6px;font-size:11px;">3. Recovery ${isPostRecovery ? '(' + dS(a.t[21], true) + ')' : '(Pending)'}</span>
+      </div>
+    </div>
+    <span class="sm mu" style="margin-top:4px;">${subTitle}</span>
+  </div>
+  ${c1}${c2}
+  <div class="stat4" style="margin-top:10px;">
+    <div><b class="num">${a.r.dt} h</b><small>Unplanned downtime (RCA)</small></div>
+    <div><b class="num">${nf(a.r.prodLoss)} t</b><small>Production lost</small></div>
+    <div><b class="num">${fmtK(a.r.loss)}</b><small>Financial loss</small></div>
+    <div><b class="num">${a.r.piOff} h</b><small>Hours at zero feed in PI</small></div>
+  </div>
+  <p class="note" style="margin-top:10px;">${a.c.chrono}</p>`;
 }
 
 export function banner(a, s) {
   const fl = a.fl >= 0 && S.ms >= a.t[a.fl],
     al = S.ms >= a.t[a.al],
     dl = (t) => dS(t, true);
-  if (S.ms > a.failMs)
+  if (S.ms >= a.failMs) {
+    const isPost = S.ms >= a.t[21];
     return [
-      `Failed on ${dl(a.failMs)}: ${a.r.dt} h down and ${fmtK(a.r.loss)} lost. Capsul had flagged it ${a.leadFail} weeks earlier, on ${dl(a.t[a.fl])}.`,
+      isPost
+        ? `<b>Historical Failure Record:</b> Failed on ${dl(a.failMs)}: ${a.r.dt} h down and ${fmtK(a.r.loss)} lost (Recovery completed). Capsul had flagged it ${a.leadFail} weeks earlier, on ${dl(a.t[a.fl])}.`
+        : `<b>Failure Event & Outage:</b> Asset tripped on ${dl(a.failMs)}. ${a.r.dt} h downtime and ${fmtK(a.r.loss)} loss in progress. Capsul flagged this ${a.leadFail} weeks earlier, on ${dl(a.t[a.fl])}.`,
       'a'
     ];
+  }
   if (fl && al && a.lead > 0)
     return [
       `<b>Capsul raised a heuristic flag on ${dl(a.t[a.fl])}.</b> The DCS alarmed ${a.lead} weeks later, on ${dl(a.t[a.al])}.`,
@@ -435,10 +473,11 @@ export function renderInvestigateView() {
           ${S.ev ? `<p class="note" style="margin-top:10px;">Highlighted evidence for selected cause. <button class="btn q" data-ev="x">Clear highlight</button></p>` : ''}
         </section>
 
-        <!-- Outage & Loss Traceability -->
+        <!-- Outage & Loss Traceability (Only shown on/after failure date) -->
+        ${S.ms >= a.failMs ? `
         <section class="pn" style="margin-top:16px;">
           ${outage(a)}
-        </section>
+        </section>` : ''}
 
         <!-- Similar Incidents Database Search -->
         <section class="pn" style="margin-top:16px;">
