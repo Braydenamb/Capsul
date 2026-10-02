@@ -219,89 +219,101 @@ export function kpiData() {
   };
 }
 
-export function dq() {
-  const dd = ASSETS.filter((a) => Math.abs(a.r.piOff - a.r.dt) > 0.01),
-    open = INC.filter((i) => OPEN.includes(i.status)),
-    noAR = open.filter((i) => !i.ar),
-    odd = INC.filter((i) => ['High', 'Mechanical', 'Motor'].includes(i.mech));
-  return [
-    {
-      id: 'dt',
-      sev: 'High',
-      t: 'Downtime hours differ between PI and the RCA report',
-      a: ['PI run status', dd.map((a) => a.tag + ' ' + a.r.piOff + ' h').join(', ')],
-      b: ['RCA report', dd.map((a) => a.tag + ' ' + a.r.dt + ' h').join(', ')],
-      why: 'Availability, MTTR and loss all depend on downtime. Pick one clock.'
-    },
-    {
+export function getDqResolution(id, ms = S.ms) {
+  const r = S.res[id];
+  if (!r) return null;
+  if (typeof r === 'object' && r.val !== undefined && r.ms !== undefined) {
+    return ms >= r.ms ? r.val : null;
+  }
+  if (typeof r === 'string') return r;
+  return null;
+}
+
+export function dq(ms = S.ms) {
+  const pastFailAssets = ASSETS.filter((a) => a.failMs <= ms);
+  const dd = pastFailAssets.filter((a) => Math.abs(a.r.piOff - a.r.dt) > 0.01);
+  
+  const pastInc = INC.filter((i) => i.ms <= ms);
+  const openInc = pastInc.filter((i) => OPEN.includes(i.status));
+  const noAR = openInc.filter((i) => !i.ar);
+  const odd = pastInc.filter((i) => ['High', 'Mechanical', 'Motor'].includes(i.mech));
+
+  const ko3201 = byTag('KO-3201');
+  const pm4405 = byTag('PM-4405B');
+  const bl5702 = byTag('BL-5702');
+
+  const rules = [];
+
+  // 1. Tag Metadata Unit Disagreement (KO-3201): active from T0
+  if (ko3201 && ms >= ko3201.t[0]) {
+    rules.push({
       id: 'un',
       sev: 'High',
+      detectMs: ko3201.t[0],
       t: 'KO-3201 vibration unit disagrees',
       a: ['PI tag metadata', 'KO3201_VIB unit MM/S'],
       b: ['Equipment record', 'DE radial vibration in µm, alarm 45, trip 75'],
       why: 'Readings of 27 to 77 only make sense in µm. A dashboard that trusts the PI unit would show a false alarm of about 10 times the limit.'
-    },
-    {
-      id: 'lp',
-      sev: 'High',
-      t: 'KO-3201 lube-oil pressure: cause ruled out on a different number',
-      a: ['RCA report', '1.8 barg, normal band'],
-      b: ['Equipment record', '1.08 barg by trip week, trip limit 1.1'],
-      why: 'The RCA ruled out low oil pressure. If the record is right, that cause was never really tested.'
-    },
-    {
-      id: 'cu',
-      sev: 'High',
-      t: 'PM-4405B motor current: overload ruled out on a different number',
-      a: ['RCA report', '132 A, within limit'],
-      b: ['Equipment record', '168.3 A at trip, alarm 150'],
-      why: 'Motor overload was excluded on the RCA figure.'
-    },
-    {
-      id: 'ar',
-      sev: 'High',
-      t: 'Open incidents without an AR number',
-      a: ['Incident DB', noAR.length + ' of ' + open.length + ' open incidents have no AR number'],
-      b: ['Needed', 'Every open incident traceable to an AR'],
-      opts: ['Flag to Reliability', 'Accept the gap'],
-      why: 'Without an AR number the RCA and CAPA cannot be tracked to closure.'
-    },
-    {
-      id: 'wa',
-      sev: 'Medium',
-      t: 'KO-3201 lube-oil water at trip',
-      a: ['RCA report', '1,800 ppm, sample taken after the trip'],
-      b: ['Equipment record', '1,530 ppm, trip-week reading'],
-      why: 'Both can be true at different times. The dashboard needs one rule for which reading counts.'
-    },
-    {
+    });
+  }
+
+  // 2. PM Compliance Uniformity: active from T0
+  rules.push({
+    id: 'pm',
+    sev: 'Medium',
+    detectMs: T0,
+    t: 'PM compliance is 92% on all five assets',
+    a: ['Equipment record', '92% for every asset'],
+    b: ['Expected', 'A different value per asset'],
+    opts: ['Treat it as a plant-level KPI', 'Ask Maintenance for asset values'],
+    why: 'Identical values suggest a plant figure copied onto each record.'
+  });
+
+  // 3. Plant Naming Standard: active from T0
+  rules.push({
+    id: 'pl',
+    sev: 'Low',
+    detectMs: T0,
+    t: 'Plant names differ between sources',
+    a: ['Equipment record', 'Resin Plant (ARP), Utility Plant (NUP)'],
+    b: ['RCA report', 'Aurora Resin Plant, Nova Utility Plant'],
+    opts: ['Use the plant code as the key', 'Use the RCA names'],
+    why: 'The four-letter plant code is the only value that matches everywhere.'
+  });
+
+  // 4. Vibration Alert Level Definition (KO-3201): active once flag/alarm is reached
+  if (ko3201 && ko3201.fl >= 0 && ms >= ko3201.t[ko3201.fl]) {
+    rules.push({
       id: 'al',
       sev: 'Medium',
+      detectMs: ko3201.t[ko3201.fl],
       t: 'KO-3201 vibration alert level',
       a: ['RCA report', 'Alert at 60 µm'],
       b: ['Equipment record', 'Alarm at 45 µm'],
       why: 'Two limits for the same signal give two answers to “is it in alarm?”.'
-    },
-    {
-      id: 'of',
-      sev: 'Medium',
-      t: 'BL-5702 coupling offset at trip',
-      a: ['RCA report', '0.35 mm'],
-      b: ['Equipment record', '0.306 mm, trip limit 0.3'],
-      why: 'Small gap, but the value defines when the alignment KPI turns red.'
-    },
-    {
-      id: 'pm',
-      sev: 'Medium',
-      t: 'PM compliance is 92% on all five assets',
-      a: ['Equipment record', '92% for every asset'],
-      b: ['Expected', 'A different value per asset'],
-      opts: ['Treat it as a plant-level KPI', 'Ask Maintenance for asset values'],
-      why: 'Identical values suggest a plant figure copied onto each record.'
-    },
-    {
+    });
+  }
+
+  // 5. Open Incidents Without AR Number: active when open incidents exist up to ms
+  if (openInc.length > 0) {
+    rules.push({
+      id: 'ar',
+      sev: 'High',
+      detectMs: openInc[0].ms,
+      t: 'Open incidents without an AR number',
+      a: ['Incident DB', noAR.length + ' of ' + openInc.length + ' open incidents have no AR number'],
+      b: ['Needed', 'Every open incident traceable to an AR'],
+      opts: ['Flag to Reliability', 'Accept the gap'],
+      why: 'Without an AR number the RCA and CAPA cannot be tracked to closure.'
+    });
+  }
+
+  // 6. Incomplete Failure Mechanism Codes in Incident DB: active when incident records exist up to ms
+  if (pastInc.length > 0) {
+    rules.push({
       id: 'mc',
       sev: 'Medium',
+      detectMs: pastInc[0].ms,
       t: 'Incomplete failure-mechanism codes in the Incident DB',
       a: [
         'Incident DB',
@@ -310,17 +322,75 @@ export function dq() {
       b: ['Needed', 'A standard failure-mechanism list'],
       opts: ['Normalize with a mapping', 'Leave as recorded'],
       why: 'Similar-incident search needs comparable codes. Capsul derives them from the title as a stop-gap.'
-    },
-    {
-      id: 'pl',
-      sev: 'Low',
-      t: 'Plant names differ between sources',
-      a: ['Equipment record', 'Resin Plant (ARP), Utility Plant (NUP)'],
-      b: ['RCA report', 'Aurora Resin Plant, Nova Utility Plant'],
-      opts: ['Use the plant code as the key', 'Use the RCA names'],
-      why: 'The four-letter plant code is the only value that matches everywhere.'
-    }
-  ];
+    });
+  }
+
+  // 7. Downtime Clock Disagreement (PI vs RCA): active once an asset failure has occurred
+  if (pastFailAssets.length > 0) {
+    rules.push({
+      id: 'dt',
+      sev: 'High',
+      detectMs: pastFailAssets[0].failMs,
+      t: 'Downtime hours differ between PI and the RCA report',
+      a: ['PI run status', dd.length > 0 ? dd.map((a) => a.tag + ' ' + a.r.piOff + ' h').join(', ') : 'No downtime diff'],
+      b: ['RCA report', dd.length > 0 ? dd.map((a) => a.tag + ' ' + a.r.dt + ' h').join(', ') : 'RCA record'],
+      why: 'Availability, MTTR and loss all depend on downtime. Pick one clock.'
+    });
+  }
+
+  // 8. KO-3201 Lube Oil Water Post-Trip Sampling: active after KO-3201 trip
+  if (ko3201 && ms >= ko3201.failMs) {
+    rules.push({
+      id: 'wa',
+      sev: 'Medium',
+      detectMs: ko3201.failMs,
+      t: 'KO-3201 lube-oil water at trip',
+      a: ['RCA report', '1,800 ppm, sample taken after the trip'],
+      b: ['Equipment record', '1,530 ppm, trip-week reading'],
+      why: 'Both can be true at different times. The dashboard needs one rule for which reading counts.'
+    });
+  }
+
+  // 9. KO-3201 Lube Oil Pressure Ruled-Out Value: active after KO-3201 trip RCA
+  if (ko3201 && ms >= ko3201.failMs) {
+    rules.push({
+      id: 'lp',
+      sev: 'High',
+      detectMs: ko3201.failMs,
+      t: 'KO-3201 lube-oil pressure: cause ruled out on a different number',
+      a: ['RCA report', '1.8 barg, normal band'],
+      b: ['Equipment record', '1.08 barg by trip week, trip limit 1.1'],
+      why: 'The RCA ruled out low oil pressure. If the record is right, that cause was never really tested.'
+    });
+  }
+
+  // 10. PM-4405B Motor Current Ruled-Out Overload Value: active after PM-4405B trip RCA
+  if (pm4405 && ms >= pm4405.failMs) {
+    rules.push({
+      id: 'cu',
+      sev: 'High',
+      detectMs: pm4405.failMs,
+      t: 'PM-4405B motor current: overload ruled out on a different number',
+      a: ['RCA report', '132 A, within limit'],
+      b: ['Equipment record', '168.3 A at trip, alarm 150'],
+      why: 'Motor overload was excluded on the RCA figure.'
+    });
+  }
+
+  // 11. BL-5702 Coupling Offset at Trip: active after BL-5702 trip RCA
+  if (bl5702 && ms >= bl5702.failMs) {
+    rules.push({
+      id: 'of',
+      sev: 'Medium',
+      detectMs: bl5702.failMs,
+      t: 'BL-5702 coupling offset at trip',
+      a: ['RCA report', '0.35 mm'],
+      b: ['Equipment record', '0.306 mm, trip limit 0.3'],
+      why: 'Small gap, but the value defines when the alignment KPI turns red.'
+    });
+  }
+
+  return rules;
 }
 
 export const ADDR = ['leak', 'vib', 'heat', 'foul', 'worn', 'loose', 'crack'];

@@ -325,7 +325,7 @@ document.addEventListener('click', (e) => {
   } else if (q.res) {
     pushActionState('Data Quality Resolution');
     const [id, v] = q.res.split('|');
-    if (v) S.res[id] = v;
+    if (v) S.res[id] = { val: v, ms: S.ms };
     else delete S.res[id];
     render();
     cap('<b>Golden record decision saved.</b> <button class="btn q sm" onclick="window.undoLastAction()" style="margin-left:8px;padding:2px 8px;font-size:12px;font-weight:600;color:var(--brand);">Undo</button>', 4500);

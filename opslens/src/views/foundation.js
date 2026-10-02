@@ -1,5 +1,5 @@
 import { state as S } from '../core/state.js';
-import { ASSETS, dq } from '../core/analytics.js';
+import { ASSETS, dq, getDqResolution } from '../core/analytics.js';
 import { INC } from '../core/incidents.js';
 import { dS } from '../core/formatting.js';
 
@@ -11,7 +11,7 @@ export const KP_DICT = [
     'Downtime (h)',
     'Hours with run status OFF',
     'Operations',
-    S.res.dt ? 'Golden record: ' + S.res.dt : 'PI run status or RCA report, to be decided',
+    S.res.dt ? 'Golden record: ' + (typeof S.res.dt === 'object' ? S.res.dt.val : S.res.dt) : 'PI run status or RCA report, to be decided',
     'Hourly'
   ],
   ['Production loss (t)', 'Downtime h × rate loss per hour', 'Production', 'RCA report', 'Per event'],
@@ -47,15 +47,16 @@ export const KP_DICT = [
 ];
 
 export function renderFoundationView() {
-  const D_all = dq();
+  const D_all = dq(S.ms);
   const pastInc = INC.filter((i) => i.ms <= S.ms);
   const pastRca = ASSETS.filter((a) => a.failMs <= S.ms);
   const curDateStr = dS(S.ms, true);
 
-  // Filter Data Quality checks based on state
+  // Filter Data Quality checks based on state as of S.ms
   const dqFilter = S.dqFilter || { sev: 'All', status: 'All', sort: 'priority' };
   let D = D_all.filter((d) => {
-    const isRes = !!S.res[d.id];
+    const resVal = getDqResolution(d.id, S.ms);
+    const isRes = !!resVal;
     if (dqFilter.status === 'Resolved' && !isRes) return false;
     if (dqFilter.status === 'Unresolved' && isRes) return false;
     if (dqFilter.sev !== 'All' && d.sev !== dqFilter.sev) return false;
@@ -69,7 +70,7 @@ export function renderFoundationView() {
     D.sort((p, q) => p.t.localeCompare(q.t));
   }
 
-  const rs = D_all.filter((d) => S.res[d.id]).length;
+  const rs = D_all.filter((d) => !!getDqResolution(d.id, S.ms)).length;
   const pv = (a) => a.r.piMeta.find((x) => x[0].endsWith('_VIB'));
   const mto = (t) => INC.find((i) => i.tag === t && i.n <= 5);
 
@@ -88,7 +89,7 @@ export function renderFoundationView() {
       'Downtime (h)',
       'Hours with run status OFF',
       'Operations',
-      S.res.dt ? 'Golden record: ' + S.res.dt : 'PI run status or RCA report',
+      getDqResolution('dt', S.ms) ? 'Golden record: ' + getDqResolution('dt', S.ms) : 'PI run status or RCA report',
       'Hourly'
     ],
     ['Production loss (t)', 'Downtime h × rate loss per hour', 'Production', 'RCA report', 'Per event'],
@@ -307,7 +308,7 @@ export function renderFoundationView() {
           ${D.map((d) => {
             const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.toLowerCase()),
               o = d.opts || ['Use ' + lc(d.a[0]), 'Use ' + lc(d.b[0])],
-              r = S.res[d.id];
+              r = getDqResolution(d.id, S.ms);
             return `
               <div class="dq ${r ? 'ok' : d.sev === 'Low' ? 'lo' : ''}" style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
