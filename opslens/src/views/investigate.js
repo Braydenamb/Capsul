@@ -15,48 +15,77 @@ export function multiple(a, j, s) {
     W = 330,
     H = 130,
     pl = 40,
-    pr = 6,
+    pr = 10,
     pt = 14,
-    pb = 18;
+    pb = 20;
+
   let lo = Math.min(...v, sg.al, sg.tr),
     hi = Math.max(...v, sg.al, sg.tr);
   const pd = (hi - lo) * 0.07;
   lo -= pd;
   hi += pd;
-  const X = (t) => pl + ((t - a.t[0]) / (a.t[25] - a.t[0])) * (W - pl - pr),
-    Y = (y) => pt + ((hi - y) / (hi - lo)) * (H - pt - pb),
-    b = a.base[j],
-    P = (p) => p.map((q) => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' ');
-  const all = v.map((y, k) => [X(a.t[k]), Y(y)]),
-    past = all.filter((_, k) => a.t[k] <= S.ms),
-    on = !S.ev || S.ev.includes(j),
-    lab = (y, t, c) =>
-      `<text x="${W - pr}" y="${y - 3 < pt - 2 ? y + 11 : y - 3}" text-anchor="end" style="fill:var(${c})">${t}</text>`;
 
-  let o = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${a.tag} ${sg.n}, weekly readings with alarm and trip limits"><rect x="${pl}" y="${Math.min(Y(b.m + 3 * b.sd), Y(b.m - 3 * b.sd))}" width="${W - pl - pr}" height="${Math.abs(Y(b.m - 3 * b.sd) - Y(b.m + 3 * b.sd))}" fill="var(--N)" opacity=".14"/>
-  <line x1="${pl}" x2="${W - pr}" y1="${Y(sg.al)}" y2="${Y(sg.al)}" stroke="var(--A)" stroke-dasharray="4 3"/>${lab(Y(sg.al), 'alarm ' + nf(sg.al), '--A')}<line x1="${pl}" x2="${W - pr}" y1="${Y(sg.tr)}" y2="${Y(sg.tr)}" stroke="var(--T)" stroke-dasharray="4 3"/>${lab(Y(sg.tr), 'trip ' + nf(sg.tr), '--T')}`;
+  const now = S.ms;
+  const WINDOW = 91 * DAY; // 13-week rolling window (~3 months)
+  const tEnd = now;
+  const tStart = tEnd - WINDOW;
+  const xDot = W - pr;
 
-  [
-    [a.fl >= 0 ? a.t[a.fl] : null, 'AI', '--W'],
-    [a.t[a.al], 'DCS', '--A'],
-    [a.t[20], 'Trip', '--T']
-  ].forEach(([t, l, c]) => {
-    if (t !== null && t <= S.ms)
-      o += `<line x1="${X(t)}" x2="${X(t)}" y1="${pt}" y2="${H - pb}" stroke="var(${c})" stroke-width="1.4"/><text x="${X(t) + 2}" y="${pt - 3}" style="fill:var(${c});font-weight:600">${l}</text>`;
-  });
-  o += `<polyline points="${P(all)}" fill="none" stroke="var(--mute)" opacity=".38" stroke-dasharray="2 3"/>`;
-  if (past.length > 1)
-    o += `<polyline points="${P(past)}" fill="none" stroke="var(--brand)" stroke-width="${S.ev && on ? 3.2 : 2}"/>`;
-  past.forEach((p, k) => {
-    o += `<circle cx="${p[0]}" cy="${p[1]}" r="${k === past.length - 1 ? 4.2 : 1.8}" fill="${k === past.length - 1 ? 'var(--brand)' : 'var(--brand)'}"><title>${dS(a.t[k], true)}: ${fmtSig(a, j, k)}</title></circle>`;
-  });
-  const px = X(clamp(S.ms, a.t[0], a.t[25]));
-  o += `<line x1="${px}" x2="${px}" y1="${pt}" y2="${H - pb}" stroke="var(--ink)" opacity=".5"/>`;
-  o += `<text x="${pl - 4}" y="${pt + 4}" text-anchor="end">${nf(hi)}</text><text x="${pl - 4}" y="${H - pb}" text-anchor="end">${nf(lo)}</text><text x="${pl}" y="${H - 4}">${dS(a.t[0])}</text><text x="${(pl + W - pr) / 2}" y="${H - 4}" text-anchor="middle">${dS(a.t[13])}</text><text x="${W - pr}" y="${H - 4}" text-anchor="end">${dS(a.t[25])}</text></svg>`;
-  const i = s.i,
-    cur = i >= 0 ? v[Math.min(i, 25)] : null,
-    z = i >= 0 && i <= 20 ? a.z[i][j] : 0,
-    bey = (x, l) => (sg.d > 0 ? x >= l : x <= l);
+  const X = (t) => pl + ((t - tStart) / WINDOW) * (xDot - pl);
+  const Y = (y) => pt + ((hi - y) / (hi - lo)) * (H - pt - pb);
+  const b = a.base[j];
+  const P = (p) => p.map((q) => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' ');
+
+  // Compute smooth current value at `now`
+  let curVal = null;
+  if (now >= a.t[0]) {
+    if (now >= a.t[25]) {
+      curVal = v[25];
+    } else {
+      let k = 0;
+      while (k < 25 && a.t[k + 1] <= now) k++;
+      const t0 = a.t[k],
+        t1 = a.t[k + 1];
+      const frac = t1 > t0 ? (now - t0) / (t1 - t0) : 0;
+      curVal = v[k] + frac * (v[k + 1] - v[k]);
+    }
+  }
+
+  // Build the historical trace within the 3-month window
+  const pts = [];
+  const sampleDots = [];
+  if (now >= a.t[0]) {
+    // Left boundary segment: interpolate if data starts before the window
+    if (a.t[0] < tStart) {
+      let k = 0;
+      while (k < 25 && a.t[k + 1] <= tStart) k++;
+      const t0 = a.t[k],
+        t1 = a.t[k + 1];
+      const frac = t1 > t0 ? (tStart - t0) / (t1 - t0) : 0;
+      const yStart = v[k] + frac * (v[k + 1] - v[k]);
+      pts.push([pl, Y(yStart)]);
+    }
+
+    // Weekly readings strictly inside [tStart, now]
+    for (let k = 0; k < a.t.length; k++) {
+      const tk = a.t[k];
+      if (tk >= tStart && tk <= now) {
+        const ptCoord = [X(tk), Y(v[k])];
+        pts.push(ptCoord);
+        sampleDots.push({ x: ptCoord[0], y: ptCoord[1], t: tk, val: v[k], idx: k });
+      }
+    }
+
+    // Final point: connect smoothly to the current dot at (xDot, Y(curVal))
+    if (curVal !== null) {
+      pts.push([xDot, Y(curVal)]);
+    }
+  }
+
+  const cur = curVal;
+  const z = cur !== null ? (sg.d * (cur - b.m)) / b.sd : 0;
+  const bey = (x, l) => (sg.d > 0 ? x >= l : x <= l);
+  const on = !S.ev || S.ev.includes(j);
   const col =
     cur === null
       ? 'var(--mute)'
@@ -66,7 +95,84 @@ export function multiple(a, j, s) {
           ? 'var(--A)'
           : z > 3
             ? 'var(--W)'
-            : 'var(--ink)';
+            : 'var(--brand)';
+
+  const lab = (y, t, c) =>
+    `<text x="${pl + 3}" y="${y - 3 < pt - 2 ? y + 10 : y - 3}" text-anchor="start" style="fill:var(${c});font-size:9.5px;font-weight:600;opacity:.88">${t}</text>`;
+
+  // 1. Base SVG and baseline ±3σ band
+  let o = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${a.tag} ${sg.n}, 3-month rolling condition telemetry"><rect x="${pl}" y="${Math.min(Y(b.m + 3 * b.sd), Y(b.m - 3 * b.sd))}" width="${W - pl - pr}" height="${Math.abs(Y(b.m - 3 * b.sd) - Y(b.m + 3 * b.sd))}" fill="var(--N)" opacity=".14"/>
+  <line x1="${pl}" x2="${W - pr}" y1="${Y(sg.al)}" y2="${Y(sg.al)}" stroke="var(--A)" stroke-dasharray="4 3"/>${lab(Y(sg.al), 'alarm ' + nf(sg.al), '--A')}<line x1="${pl}" x2="${W - pr}" y1="${Y(sg.tr)}" y2="${Y(sg.tr)}" stroke="var(--T)" stroke-dasharray="4 3"/>${lab(Y(sg.tr), 'trip ' + nf(sg.tr), '--T')}`;
+
+  // 2. Month ticks along the rolling 3-month window
+  const startD = new Date(tStart);
+  let curY = startD.getUTCFullYear();
+  let curM = startD.getUTCMonth();
+  let probe = new Date(Date.UTC(curY, curM, 1));
+  const monthTicks = [];
+  while (probe.getTime() <= tEnd) {
+    if (probe.getTime() >= tStart) {
+      monthTicks.push({
+        time: probe.getTime(),
+        label: MON[probe.getUTCMonth()]
+      });
+    }
+    curM++;
+    if (curM > 11) {
+      curM = 0;
+      curY++;
+    }
+    probe = new Date(Date.UTC(curY, curM, 1));
+  }
+
+  monthTicks.forEach((mt) => {
+    const mx = X(mt.time);
+    o += `<line x1="${mx.toFixed(1)}" x2="${mx.toFixed(1)}" y1="${pt}" y2="${H - pb}" stroke="var(--line)" opacity=".25" stroke-dasharray="2 3"/>`;
+    o += `<line x1="${mx.toFixed(1)}" x2="${mx.toFixed(1)}" y1="${H - pb}" y2="${H - pb + 4}" stroke="var(--mute)" opacity=".6"/>`;
+    if (mx - pl > 22 && xDot - mx > 24) {
+      o += `<text x="${mx.toFixed(1)}" y="${H - 4}" text-anchor="middle" style="font-size:9.5px;fill:var(--mute)">${mt.label}</text>`;
+    }
+  });
+
+  // 3. Operational milestone lines within this rolling window (AI flag, DCS alarm, Trip)
+  [
+    [a.fl >= 0 ? a.t[a.fl] : null, 'AI', '--W'],
+    [a.t[a.al], 'DCS', '--A'],
+    [a.t[20], 'Trip', '--T']
+  ].forEach(([t, l, c]) => {
+    if (t !== null && t <= now && t >= tStart) {
+      const ex = X(t);
+      o += `<line x1="${ex.toFixed(1)}" x2="${ex.toFixed(1)}" y1="${pt}" y2="${H - pb}" stroke="var(${c})" stroke-width="1.4"/><text x="${(ex + 2).toFixed(1)}" y="${pt - 3}" style="fill:var(${c});font-weight:600;font-size:10px">${l}</text>`;
+    }
+  });
+
+  // 4. Past trace polyline (trailing behind the dot)
+  if (pts.length > 1) {
+    o += `<polyline points="${P(pts)}" fill="none" stroke="var(--brand)" stroke-width="${S.ev && on ? 3.2 : 2.2}"/>`;
+  }
+
+  // 5. Past reading dots
+  sampleDots.forEach((d) => {
+    if (Math.abs(d.x - xDot) > 3) {
+      o += `<circle cx="${d.x.toFixed(1)}" cy="${d.y.toFixed(1)}" r="2" fill="var(--brand)" opacity=".65"><title>${dS(d.t, true)}: ${fmtSig(a, j, d.idx)}</title></circle>`;
+    }
+  });
+
+  // 6. The current dot: stationary at xDot, moving only in y-coordinate
+  o += `<line x1="${xDot}" x2="${xDot}" y1="${pt}" y2="${H - pb}" stroke="var(--ink)" opacity=".22" stroke-dasharray="2 2"/>`;
+  if (curVal !== null) {
+    const yDot = Y(curVal);
+    o += `<circle cx="${xDot}" cy="${yDot.toFixed(1)}" r="7" fill="${col}" opacity=".22"/>`;
+    o += `<circle cx="${xDot}" cy="${yDot.toFixed(1)}" r="4.2" fill="${col}" stroke="var(--panel, #fff)" stroke-width="1.6"><title>${dS(now, true)}: ${nf(curVal)} ${sg.u}</title></circle>`;
+  }
+
+  // 7. Y-axis min/max and X-axis date boundaries
+  o += `<text x="${pl - 4}" y="${pt + 4}" text-anchor="end">${nf(hi)}</text>`;
+  o += `<text x="${pl - 4}" y="${H - pb}" text-anchor="end">${nf(lo)}</text>`;
+  o += `<text x="${pl}" y="${H - 4}" text-anchor="start" style="font-size:9.5px;fill:var(--mute)">${dS(tStart)}</text>`;
+  o += `<text x="${xDot}" y="${H - 4}" text-anchor="end" style="font-size:10px;font-weight:600;fill:var(--brand)">${dS(tEnd)}</text>`;
+  o += `</svg>`;
+
   const sgm = (val) => (val > 10 ? 'over 10σ' : val.toFixed(1) + 'σ');
   return `<div class="mc ${S.ev ? (on ? 'on' : 'off') : ''}"><div class="mh"><span class="mn">${sg.n}</span><span class="mv" style="color:${col}">${cur === null ? 'not monitored yet' : nf(cur) + ' ' + sg.u}</span><span class="sg">${cur === null ? '' : z > 0 ? sgm(z) : 'baseline'}</span></div>${o}</div>`;
 }
@@ -232,7 +338,7 @@ export function renderInvestigateView() {
         <section class="pn" style="margin-top:0;">
           <div class="pn-h">
             <h3>Synchronized Condition Telemetry & Thresholds</h3>
-            <span class="sm mu">Green band = 5-week baseline ±3σ. Dashed lines = DCS alarm and trip limits.</span>
+            <span class="sm mu">Rolling 3-month telemetry. Green band = 5-week baseline ±3σ. Dashed lines = DCS alarm and trip limits.</span>
           </div>
           <div class="mg" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:12px;margin-top:10px;">
             ${[0, 1, 2, 3].map((j) => multiple(a, j, s)).join('')}
