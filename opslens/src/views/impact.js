@@ -15,30 +15,39 @@ export function renderImpactView() {
 
   const realizedAssets = ASSETS.map((a) => {
     const hasFailed = S.ms >= a.failMs;
+    const hasAlarmed = a.al >= 0 && S.ms >= a.t[a.al];
+    const hasFlagged = a.fl >= 0 && S.ms >= a.t[a.fl];
     return {
       tag: a.tag,
-      flagDate: a.fl >= 0 ? dS(a.t[a.fl], true) : 'N/A',
-      alarmDate: a.al >= 0 ? dS(a.t[a.al], true) : 'N/A',
-      tripDate: hasFailed ? dS(a.failMs, true) : `<span style="color:var(--mute);font-style:italic;">Not occurred as of ${curDateStr}</span>`,
-      leadDcs: a.lead > 0 ? a.lead + ' wk' : a.lead < 0 ? 'DCS first by ' + -a.lead + ' wk' : 'same week',
+      flagDate: hasFlagged ? dS(a.t[a.fl], true) : '<span style="color:var(--mute);">Pending</span>',
+      alarmDate: hasAlarmed ? dS(a.t[a.al], true) : '<span style="color:var(--mute);">Pending</span>',
+      tripDate: hasFailed ? dS(a.failMs, true) : '<span style="color:var(--mute);font-style:italic;">Not occurred</span>',
+      leadDcs: hasAlarmed ? (a.lead > 0 ? a.lead + ' wk' : a.lead < 0 ? 'DCS first by ' + -a.lead + ' wk' : 'same week') : '<span style="color:var(--mute);">Pending</span>',
       leadTrip: hasFailed ? a.leadFail + ' wk' : '<span style="color:var(--mute);">Pending</span>',
       dt: hasFailed ? a.r.dt : 0,
       loss: hasFailed ? a.r.loss : 0,
-      hasFailed
+      hasFailed,
+      hasAlarmed,
+      leadVal: a.lead,
+      leadFailVal: a.leadFail
     };
   });
 
-  const totalDt = sum(realizedAssets.map(x => x.dt));
-  const totalLoss = sum(realizedAssets.map(x => x.loss));
+  const failedAssets = realizedAssets.filter(x => x.hasFailed);
+  const alarmedAssets = realizedAssets.filter(x => x.hasAlarmed);
+  const totalDt = sum(failedAssets.map(x => x.dt));
+  const totalLoss = sum(failedAssets.map(x => x.loss));
+  const avgLeadDcs = alarmedAssets.length > 0 ? (avg(alarmedAssets.map(x => x.leadVal)).toFixed(1) + ' wk avg') : '0.0 wk avg';
+  const avgLeadTrip = failedAssets.length > 0 ? (avg(failedAssets.map(x => x.leadFailVal)).toFixed(1) + ' wk avg') : '0.0 wk avg';
 
   return `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
       <div>
         <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;">Business Impact & Value Realization</h1>
-        <p class="mu" style="margin-top:2px;">Measured ROI from early warning flags vs actual plant incidents as of <b class="mono" style="color:var(--brand);">${curDateStr}</b></p>
+        <p class="mu" style="margin-top:2px;">Measured ROI from early warning flags vs actual plant incidents as of <b class="mono" style="color:var(--brand);display:inline-block;min-width:95px;text-align:center;">${curDateStr}</b></p>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <span class="badge badge-green">
+        <span class="badge badge-green" style="min-width:180px;justify-content:center;">
           <span class="dot dot-green"></span> Evaluated Up to ${curDateStr}
         </span>
       </div>
@@ -50,7 +59,17 @@ export function renderImpactView() {
         <span class="sm mu">Asset failures and early warning lead times up to ${curDateStr}</span>
       </div>
       <div class="tb" style="margin-top:10px;">
-        <table>
+        <table style="table-layout:fixed;width:100%;">
+          <colgroup>
+            <col style="width:12%;">
+            <col style="width:14%;">
+            <col style="width:14%;">
+            <col style="width:14%;">
+            <col style="width:14%;">
+            <col style="width:12%;">
+            <col style="width:10%;">
+            <col style="width:10%;">
+          </colgroup>
           <thead>
             <tr>
               <th>Asset</th>
@@ -79,8 +98,8 @@ export function renderImpactView() {
             <tr>
               <td><b>Total Realized (as of ${curDateStr})</b></td>
               <td colspan="3"></td>
-              <td class="r num"><b>${avg(ASSETS.map((a) => a.lead)).toFixed(1)} wk avg</b></td>
-              <td class="r num"><b>${avg(ASSETS.map((a) => a.leadFail)).toFixed(1)} wk avg</b></td>
+              <td class="r num"><b>${avgLeadDcs}</b></td>
+              <td class="r num"><b>${avgLeadTrip}</b></td>
               <td class="r num"><b>${totalDt} h</b></td>
               <td class="r num"><b>${fmtK(totalLoss)}</b></td>
             </tr>

@@ -397,6 +397,9 @@ svg text{font-size:max(12px,var(--svgt,11px))}
   padding: 2px 4px;
   gap: 2px;
   height: 34px;
+  min-width: 175px;
+  justify-content: space-between;
+  box-sizing: border-box;
 }
 .date-step-btn {
   background: none;
@@ -411,6 +414,7 @@ svg text{font-size:max(12px,var(--svgt,11px))}
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  flex-shrink: 0;
   transition: background-color 150ms ease-out, color 150ms ease-out;
 }
 .date-step-btn:hover {
@@ -419,6 +423,9 @@ svg text{font-size:max(12px,var(--svgt,11px))}
 }
 .cal-picker-wrapper {
   position: relative;
+  flex: 1;
+  display: flex;
+  justify-content: center;
 }
 .date-picker-pill {
   display: inline-flex;
@@ -427,11 +434,13 @@ svg text{font-size:max(12px,var(--svgt,11px))}
   background: none;
   border: 0;
   color: var(--cink);
-  padding: 4px 8px;
+  padding: 4px 6px;
   border-radius: 14px;
   font-size: 13.5px;
   font-weight: 500;
   cursor: pointer;
+  min-width: 135px;
+  justify-content: center;
   transition: background-color 150ms ease-out, color 150ms ease-out;
 }
 .date-picker-pill:hover {
@@ -442,15 +451,20 @@ svg text{font-size:max(12px,var(--svgt,11px))}
   display: inline-flex;
   align-items: center;
   color: #4FC3E3;
+  flex-shrink: 0;
 }
 .cal-pill-date {
   font-family: var(--fm);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  display: inline-block;
+  min-width: 96px;
+  text-align: center;
 }
 .cal-pill-chevron {
   font-size: 11px;
   color: var(--cmute);
+  flex-shrink: 0;
 }
 .stockbit-play-btn {
   background: #1D8DB0;

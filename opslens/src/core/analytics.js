@@ -327,14 +327,17 @@ export const ADDR = ['leak', 'vib', 'heat', 'foul', 'worn', 'loose', 'crack'];
 export const SPAN = (D0('2026-07-25') - D0('2024-01-04')) / DAY / 365.25;
 
 export function impRes() {
-  const pool = INC.filter((i) => ADDR.includes(i.mf)),
-    pl = sum(pool.map((i) => i.loss)),
-    pd = sum(pool.map((i) => i.dt)),
-    c = S.I.cap / 100,
-    r = S.I.red / 100;
-  return `<div class="im"><div><div class="big">${fmtK(((pl / SPAN) * c * r))}</div><div class="sm">Illustrative annual loss avoidance</div><p class="note">${fmtK(pl / SPAN)} addressable per year × ${S.I.cap}% caught early × ${S.I.red}% of loss avoided</p></div>
-<div><div class="big">${Math.round(((pd / SPAN) * c * r))} h</div><div class="sm">Unplanned downtime avoided per year</div><p class="note">${Math.round(pd / SPAN)} h addressable per year, same two shares</p></div>
-<div><div class="big">${Math.round((INC.length / SPAN) * S.I.hrs).toLocaleString('en-US')} h</div><div class="sm">Data-validation time saved per year</div><p class="note">${Math.round(INC.length / SPAN)} incidents per year × ${S.I.hrs} h across functions</p></div></div>`;
+  const pastInc = INC.filter((i) => i.ms <= S.ms);
+  const incList = pastInc.length > 0 ? pastInc : INC;
+  const spanYears = Math.max(0.1, ((S.ms || D0('2026-07-25')) - D0('2024-01-04')) / DAY / 365.25);
+  const pool = incList.filter((i) => ADDR.includes(i.mf));
+  const pl = sum(pool.map((i) => i.loss));
+  const pd = sum(pool.map((i) => i.dt));
+  const c = S.I.cap / 100;
+  const r = S.I.red / 100;
+  return `<div class="im"><div><div class="big">${fmtK(((pl / spanYears) * c * r))}</div><div class="sm">Illustrative annual loss avoidance</div><p class="note">${fmtK(pl / spanYears)} addressable per year × ${S.I.cap}% caught early × ${S.I.red}% of loss avoided</p></div>
+<div><div class="big">${Math.round(((pd / spanYears) * c * r))} h</div><div class="sm">Unplanned downtime avoided per year</div><p class="note">${Math.round(pd / spanYears)} h addressable per year, same two shares</p></div>
+<div><div class="big">${Math.round((incList.length / spanYears) * S.I.hrs).toLocaleString('en-US')} h</div><div class="sm">Data-validation time saved per year</div><p class="note">${Math.round(incList.length / spanYears)} incidents per year × ${S.I.hrs} h across functions</p></div></div>`;
 }
 
 export function scorecard() {
@@ -362,5 +365,5 @@ export function scorecard() {
       '1 day or less for Tier 1'
     ]
   ];
-  return `<section class="pn"><div class="pn-h"><h2>Closed-loop scorecard</h2><span class="sm mu">Does the loop actually close? Baseline is measured, targets are proposed</span></div><div class="tb"><table><tr><th>Loop KPI</th><th>Baseline from the data</th><th>Target with Capsul</th></tr>${R.map((r) => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td></tr>`).join('')}</table></div></section>`;
+  return `<section class="pn"><div class="pn-h"><h2>Closed-loop scorecard</h2><span class="sm mu">Does the loop actually close? Baseline is measured, targets are proposed</span></div><div class="tb"><table style="table-layout:fixed;width:100%;"><colgroup><col style="width:45%;"><col style="width:30%;"><col style="width:25%;"></colgroup><tr><th>Loop KPI</th><th>Baseline from the data</th><th>Target with Capsul</th></tr>${R.map((r) => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td></tr>`).join('')}</table></div></section>`;
 }
