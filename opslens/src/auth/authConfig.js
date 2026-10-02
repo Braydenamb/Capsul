@@ -65,8 +65,6 @@ export const DEMO_USERS = [
       'action:create',
       'createAction',
       'action:dismiss',
-      'action:start',
-      'action:submit',
       'action:verify',
       'verifyAction',
       'action:defer'
