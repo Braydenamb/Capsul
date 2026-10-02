@@ -125,42 +125,206 @@ export function energyChart() {
 
 export function renderCommandView() {
   const K = kpiData(),
-    L = LENS[S.lens] || LENS.Operations,
-    act = CUR.filter((x) => isAct(x.s.s));
-  const flagged = CUR.filter((x) => x.s.s === 'W').map((x) => x.a.tag);
-  const sub = act.length
-    ? `${act.length} of 5 monitored assets are drifting: ${act.map((x) => x.a.tag + ' (' + NM[x.s.s].toLowerCase() + ')').join(', ')}. ${flagged.length ? flagged.join(' and ') + ' ' + (flagged.length > 1 ? 'were' : 'was') + ' flagged by Capsul before the DCS alarmed. ' : ''}${fmtK(stakeOf())} of production is at stake.`
-    : 'No monitored asset is drifting on this date. Drag the timeline or jump to a key moment.';
-  const en = energyChart(),
-    ex = K.ex;
-  const bymode = (() => {
-    let l = S.mode === 'asof' ? INC.filter((i) => i.ms <= S.ms) : INC;
-    return l;
-  })();
-  const L2 = bymode.filter(
-    (i) => (!S.f.plant || i.plant === S.f.plant) && (!S.f.disc || i.disc === S.f.disc)
-  );
-  const modes = groupBy(L2, (i) => i.cf + '|' + i.mf).slice(0, 6);
-  const cnt = bymode.length,
-    tl = sum(bymode.map((i) => i.loss)),
-    td = sum(bymode.map((i) => i.dt));
-  const availableLenses = getAvailableLenses();
+    act = CUR.filter((x) => isAct(x.s.s)),
+    topAsset = CUR.map((x) => ({ ...x, sc: score(x.a, x.s) })).sort((p, q) => q.sc.total - p.sc.total)[0];
 
-  return `<h1>${L.q}</h1><p class="lead">${sub}</p>
-<div class="lensrow" role="group" aria-label="Function lens">${availableLenses.map((l) => `<button class="seg" data-lens="${l}" aria-pressed="${l === S.lens}">${l}</button>`).join('')}</div>
-<div class="kp">${L.k.map((k) => `<div><small>${K[k][0]}</small><b style="color:${K[k][3] || 'var(--ink)'}">${K[k][1]}</b><span class="s">${K[k][2]}</span><span class="tg"><span class="ch ${K.st[k]}"><i></i>${{ N: 'On target', W: 'Watch', A: 'Off target' }[K.st[k]]}</span> <span class="mu">Target: ${K.tg[k]}</span></span></div>`).join('')}</div>
-<section class="pn"><div class="pn-h"><h2>Decision loop</h2><span class="sm mu">Detect, explain, decide, act, verify: where every alert stands</span></div>${loopFunnel()}</section>
-<section class="pn hero"><div class="pn-h"><h2>Plant timeline</h2><span class="sm mu">Each lane is one asset. The striped band is the time Capsul knew before the DCS did.</span></div>${ribbon()}</section>
-<section class="pn"><div class="pn-h"><h2>Problem tank</h2><span class="sm mu">One queue for every source, ranked by a score you can inspect</span></div>
-<div id="tankrows">${tankRows()}</div>
-<div class="legend" style="margin-top:8px">${FN.map((f, i) => `<span><i class="sw" style="background:var(--f${i + 1})"></i>${f}</span>`).join('')}</div>
-<details ${S.wOpen ? 'open' : ''} id="wdet" style="margin-top:8px"><summary>Change the weights and watch the queue re-rank</summary><div class="wk">${wvHTML()}</div><p class="note">Signal agreement counts signals beyond 3σ from their own 5-week baseline. Cost if it fails is loss per hour times the average outage of similar failures in the Incident DB.${S.lens === 'HSE' ? ' HSE lens adds 8 points to Class A assets.' : ''}${S.lens === 'Energy' ? ' Energy lens adds 8 points to HE-3301, which drives the ZCU energy drift.' : ''}</p></details></section>
-<div class="g2"><div><section class="pn"><div class="pn-h"><h2>Energy forecast</h2><span class="tag">simulated · not plant data</span></div>${en.svg}
-<p class="sm" style="margin-top:6px">${ex >= 0.5 ? `ZCU specific energy is <b>+${ex.toFixed(1)}%</b> against forecast because HE-3301 has lost ${100 - at(HE, S.ms).i >= 0 ? (100 - HE.r.v[1][at(HE, S.ms).i]).toFixed(0) : 0}% of its preheat duty.${en.pj ? ` If nothing changes, <b>+${en.pj.toFixed(1)}%</b> in four weeks.` : ''}` : 'ZCU energy is on forecast on this date.'} <button class="btn q" data-open="HE-3301">Open HE-3301</button></p>
-<p class="note">Model: 25% of lost preheat duty is replaced by fuel (assumption). Energy meters are the one source added to the baseline.</p></section>
-<section class="pn"><div class="pn-h"><h2>Recurring failure modes</h2><span class="sm mu">${S.f.plant || S.f.disc ? [S.f.plant, S.f.disc].filter(Boolean).join(' and ') : 'All plants'}</span></div>
-<div class="tb"><table><tr><th>Component and failure</th><th class="r">Incidents</th><th class="r">Downtime</th><th class="r">Loss</th></tr>${modes.map((m) => { const [c, f] = m.k.split('|'); return `<tr><td>${c.charAt(0).toUpperCase() + c.slice(1)}, ${MFN[f].toLowerCase()}</td><td class="r num">${m.n}</td><td class="r num">${Math.round(m.dt)} h</td><td class="r num">${fmtK(m.loss)}</td></tr>`; }).join('') || '<tr><td colspan="4">No incidents match. Clear the filter.</td></tr>'}</table></div></section></div>
-<section class="pn"><div class="pn-h"><h2>Where losses concentrate</h2><span class="sm mu num">${cnt} incidents, ${Math.round(td).toLocaleString('en-US')} h, ${fmtK(tl)}</span></div>
-<div class="lensrow" style="margin:0 0 8px" role="group" aria-label="Incident range"><button class="seg" data-mode="all" aria-pressed="${S.mode === 'all'}">Full history</button><button class="seg" data-mode="asof" aria-pressed="${S.mode === 'asof'}">Up to the replay date</button>${S.f.plant || S.f.disc ? '<button class="btn q" data-clr="1">Clear filter</button>' : ''}</div>
-<div class="sm mu">By plant, loss and number of incidents. Click a bar to filter the failure modes.</div>${bars(groupBy(bymode, (i) => i.plant), 'plant')}<div class="sm mu" style="margin-top:10px">By discipline</div>${bars(groupBy(bymode, (i) => i.disc), 'disc')}</section></div>`;
+  const degradedTag = topAsset && isAct(topAsset.s.s) ? topAsset.a.tag : 'KO-3201';
+  const aTop = byTag(degradedTag) || ASSETS[0];
+  const stTop = at(aTop, S.ms);
+  const rcaTop = getRcaLifecycle(aTop.tag, S.ms);
+
+  // Time-aware recent events (up to S.ms)
+  const recentEvts = INC.filter(i => i.ms <= S.ms).sort((a,b) => b.ms - a.ms).slice(0, 5);
+  
+  // Plant Unit Overview Matrix data
+  const units = [
+    { code: 'ARP', name: 'Aurora Resin Plant', tag: 'PU-2101B' },
+    { code: 'ZCU', name: 'Zebu Chemical Unit', tag: 'KO-3201' },
+    { code: 'NUP', name: 'Nova Utility Plant', tag: 'HE-3301' },
+    { code: 'OPP', name: 'Oleo Polymer Plant', tag: 'PM-4405B' }
+  ].map(u => {
+    const asset = byTag(u.tag);
+    const st = asset ? at(asset, S.ms) : { s: 'N', ns: 0 };
+    return {
+      ...u,
+      st: st.s,
+      abnormalities: st.ns
+    };
+  });
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+      <div>
+        <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;">Manufacturing Command Center</h1>
+        <p class="mu" style="margin-top:2px;">One governed view of manufacturing performance and active operational risks</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="badge badge-blue" style="font-size:12.5px;padding:4px 10px;">
+          <span class="dot dot-blue"></span> Historical View: ${dS(S.ms, true)} · 08:00
+        </span>
+      </div>
+    </div>
+
+    <!-- SECTION 1: PLANT HEALTH KPIs -->
+    <section class="pn" style="margin-top:0;padding:16px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:16px;">
+        <div style="border-right:1px solid var(--line);padding-right:12px;">
+          <small class="mu" style="font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Production Performance</small>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;">
+            <b style="font-size:26px;font-family:var(--fm);color:var(--ink);">92.4%</b>
+            <small class="mu">of target rate</small>
+          </div>
+          <div style="font-size:12px;color:var(--N);margin-top:4px;display:flex;align-items:center;gap:4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            +1.2% vs previous shift
+          </div>
+        </div>
+
+        <div style="border-right:1px solid var(--line);padding-right:12px;">
+          <small class="mu" style="font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Plant Reliability</small>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;">
+            <b style="font-size:26px;font-family:var(--fm);color:var(--ink);">97.8%</b>
+            <small class="mu">availability</small>
+          </div>
+          <div style="font-size:12px;color:var(--N);margin-top:4px;display:flex;align-items:center;gap:4px;">
+            <span class="dot dot-green"></span> 5 of 5 critical assets online
+          </div>
+        </div>
+
+        <div style="border-right:1px solid var(--line);padding-right:12px;">
+          <small class="mu" style="font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Specific Energy</small>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;">
+            <b style="font-size:26px;font-family:var(--fm);color:var(--ink);">4.18</b>
+            <small class="mu">GJ / ton</small>
+          </div>
+          <div style="font-size:12px;color:${K.ex >= 2 ? 'var(--T)' : 'var(--N)'};margin-top:4px;">
+            ${(K.ex >= 0 ? '+' : '') + K.ex.toFixed(1)}% vs forecast
+          </div>
+        </div>
+
+        <div>
+          <small class="mu" style="font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Active Operational Risk</small>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;">
+            <b style="font-size:26px;font-family:var(--fm);color:${act.length > 0 ? 'var(--T)' : 'var(--N)'};">${act.length}</b>
+            <small class="mu">abnormalities flagged</small>
+          </div>
+          <div style="font-size:12px;color:var(--mute);margin-top:4px;">
+            <span class="dot ${act.some(x=>x.s.s==='A'||x.s.s==='T') ? 'dot-red' : act.length ? 'dot-amber' : 'dot-green'}"></span>
+            ${CUR.filter(x=>x.s.s==='A'||x.s.s==='T').length} critical risk priority
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: ATTENTION REQUIRED (PRIMARY VISUAL FOCUS CARD) -->
+    <section class="pn hero" style="background:#FFFFFF;border:1px solid var(--line);border-left:6px solid ${stTop.s === 'T' || stTop.s === 'A' ? 'var(--T)' : stTop.s === 'W' ? 'var(--W)' : 'var(--brand)'};border-radius:8px;padding:18px;margin-top:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="badge ${stTop.s === 'T' || stTop.s === 'A' ? 'badge-red' : stTop.s === 'W' ? 'badge-amber' : 'badge-green'}">
+              <span class="dot ${stTop.s === 'T' || stTop.s === 'A' ? 'dot-red' : stTop.s === 'W' ? 'dot-amber' : 'dot-green'}"></span>
+              ${stTop.s === 'T' ? 'TRIPPED' : stTop.s === 'A' ? 'HIGH RISK' : stTop.s === 'W' ? 'WARNING - DEGRADATION' : 'NORMAL'}
+            </span>
+            <h2 style="font-size:20px;font-weight:700;"><span class="mono">${aTop.tag}</span> — ${aTop.c.name}</h2>
+          </div>
+          <p class="mu" style="margin-top:4px;font-size:13.5px;">${aTop.c.plant} · Class ${aTop.cls} Critical Asset · ${aTop.r.disc} Discipline</p>
+        </div>
+        <button class="btn pr" data-open="${aTop.tag}" style="padding:7px 14px;font-size:14px;font-weight:600;">
+          Investigate ${aTop.tag} ►
+        </button>
+      </div>
+
+      <!-- Telemetry Breakdown -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;margin-top:16px;background:var(--page);padding:14px;border-radius:6px;border:1px solid var(--line-subtle);">
+        <div>
+          <small class="mu" style="font-size:11.5px;font-weight:600;">PRIMARY SIGNAL (VIBRATION)</small>
+          <div style="font-size:18px;font-weight:700;font-family:var(--fm);color:var(--ink);margin-top:2px;">
+            ${aTop.sig[0].n}: <span style="color:${stTop.s==='T'||stTop.s==='A'?'var(--T)':stTop.s==='W'?'var(--W)':'var(--ink)'}">${stTop.i>=0 ? aTop.r.v[0][stTop.i] : 'Baseline'} ${aTop.sig[0].u}</span>
+          </div>
+          <small class="mu">Trip Limit: 75 µm | Alarm: 45 µm</small>
+        </div>
+
+        <div>
+          <small class="mu" style="font-size:11.5px;font-weight:600;">SECONDARY SIGNAL (WATER IN OIL)</small>
+          <div style="font-size:18px;font-weight:700;font-family:var(--fm);color:var(--ink);margin-top:2px;">
+            ${aTop.sig[1].n}: <span style="color:${stTop.s==='T'||stTop.s==='A'?'var(--T)':stTop.s==='W'?'var(--W)':'var(--ink)'}">${stTop.i>=0 ? aTop.r.v[1][stTop.i] : 'Baseline'} ${aTop.sig[1].u}</span>
+          </div>
+          <small class="mu">Operating Limit: 500 ppm</small>
+        </div>
+
+        <div>
+          <small class="mu" style="font-size:11.5px;font-weight:600;">RCA STATE (TIME-AWARED)</small>
+          <div style="font-size:14px;font-weight:600;color:var(--ink);margin-top:4px;">
+            <span class="badge ${rcaTop.state==='Verified'?'badge-green':rcaTop.state==='Under investigation'?'badge-amber':'badge-gray'}">${rcaTop.state}</span>
+          </div>
+          <small class="mu">${rcaTop.confidence}% confidence score</small>
+        </div>
+      </div>
+
+      <!-- Likely Relationship Cause Chain -->
+      <div style="margin-top:14px;padding:12px;background:rgba(0,82,204,0.04);border-left:3px solid var(--brand);border-radius:4px;">
+        <small style="font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:0.04em;">System Interpretation / Cause Chain</small>
+        <p style="font-size:13.5px;margin-top:4px;color:var(--ink);">
+          <b>Likely relationship:</b> ${rcaTop.causeText}
+        </p>
+      </div>
+    </section>
+
+    <!-- SECTION 3: PLANT / UNIT OVERVIEW MATRIX -->
+    <section class="pn" style="margin-top:16px;">
+      <div class="pn-h">
+        <h2>Plant & Unit Overview</h2>
+        <span class="sm mu">Operational status across major processing units as of ${dS(S.ms, true)}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px;margin-top:10px;">
+        ${units.map(u => `
+          <div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <b style="font-size:15px;font-family:var(--fm);">${u.code}</b>
+              <small class="mu" style="display:block;">${u.name}</small>
+            </div>
+            <div style="text-align:right;">
+              <span class="badge ${u.st === 'T' || u.st === 'A' ? 'badge-red' : u.st === 'W' ? 'badge-amber' : 'badge-green'}">
+                <span class="dot ${u.st === 'T' || u.st === 'A' ? 'dot-red' : u.st === 'W' ? 'dot-amber' : 'dot-green'}"></span>
+                ${u.st === 'T' ? 'TRIP' : u.st === 'A' ? 'ALERT' : u.st === 'W' ? 'WARNING' : 'NORMAL'}
+              </span>
+              ${u.abnormalities > 0 ? `<small class="mu" style="display:block;margin-top:2px;">${u.abnormalities} abnormal signals</small>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <!-- SECTION 4 & 5: RECENT EVENTS & ACTION STATUS (SIDE BY SIDE) -->
+    <div class="g2" style="margin-top:16px;">
+      <!-- SECTION 4: RECENT EVENTS -->
+      <section class="pn" style="margin-top:0;">
+        <div class="pn-h">
+          <h2>Recent Operational Events</h2>
+          <span class="sm mu">Chronological log up to ${dS(S.ms, true)}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+          ${recentEvts.length > 0 ? recentEvts.map(evt => `
+            <div style="padding:8px 10px;border-bottom:1px solid var(--line-subtle);display:flex;justify-content:space-between;align-items:center;font-size:13px;">
+              <div>
+                <span class="mono" style="font-weight:600;color:var(--brand);">${evt.mto || 'AR-2026'}</span>
+                <span class="mu" style="margin-left:6px;">${evt.plant} · ${evt.cf || 'Equipment Failure'}</span>
+              </div>
+              <div class="mono mu" style="font-size:12px;">${dS(evt.ms, true)}</div>
+            </div>
+          `).join('') : '<div class="empty">No recent operational events prior to this date.</div>'}
+        </div>
+      </section>
+
+      <!-- SECTION 5: ACTION STATUS SUMMARY -->
+      <section class="pn" style="margin-top:0;">
+        <div class="pn-h">
+          <h2>CAPA Action Status Summary</h2>
+          <span class="sm mu">Active corrective and preventive assignments</span>
+        </div>
+        <div id="tankrows">${tankRows()}</div>
+        <div class="legend" style="margin-top:8px">${FN.map((f, i) => `<span><i class="sw" style="background:var(--f${i + 1})"></i>${f}</span>`).join('')}</div>
+      </section>
+    </div>
+  `;
 }

@@ -67,8 +67,10 @@ export function initHeader() {
       <div class="header-controls">
         <!-- Historical Replay Popover Trigger -->
         <button id="replay-toggle" class="header-pill replay-btn" aria-haspopup="true" aria-expanded="false" aria-label="Toggle historical replay controls">
-          <span class="replay-icon">📅</span>
-          <span class="replay-date" id="dBig">${dS(S.ms, true)}</span>
+          <span class="replay-icon" style="display:inline-flex;align-items:center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </span>
+          <span class="replay-date" id="dBig" style="font-family:var(--fm);font-weight:600;">${dS(S.ms, true)}</span>
           <span class="replay-badge">Replay ▾</span>
         </button>
 
@@ -87,17 +89,25 @@ export function initHeader() {
             </div>
             <div class="user-dropdown-divider"></div>
             <button id="demo" class="menu-item" role="menuitem">
-              <span class="icon">▶</span> Guided demo
+              <span class="icon" style="display:inline-flex;align-items:center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              </span> Guided demo
             </button>
             <button id="how" class="menu-item" role="menuitem">
-              <span class="icon">❓</span> How it works
+              <span class="icon" style="display:inline-flex;align-items:center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span> How it works
             </button>
             <button id="theme" class="menu-item" role="menuitem">
-              <span class="icon">🌓</span> Switch theme
+              <span class="icon" style="display:inline-flex;align-items:center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              </span> Switch theme
             </button>
             <div class="user-dropdown-divider"></div>
             <button id="logout-btn" class="menu-item danger" role="menuitem">
-              <span class="icon">🚪</span> Sign out
+              <span class="icon" style="display:inline-flex;align-items:center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              </span> Sign out
             </button>
           </div>
         </div>
@@ -108,16 +118,18 @@ export function initHeader() {
     <div id="replay-popover" class="replay-popover-panel" aria-label="Historical replay controls">
       <div class="replay-panel-inner">
         <div class="replay-info">
-          <span class="clock-label">HISTORICAL REPLAY</span>
-          <small id="dSub">${DOW[new Date(S.ms).getUTCDay()]} · simulated replay date</small>
+          <span class="clock-label">HISTORICAL VIEW</span>
+          <small id="dSub" style="font-family:var(--fm);">${DOW[new Date(S.ms).getUTCDay()]} · simulated replay date</small>
         </div>
         <div class="replay-slider-wrapper">
           <input id="day" type="range" min="0" max="${NDAYS}" value="${Math.round((S.ms - T0) / DAY)}" aria-label="Replay date slider">
         </div>
         <div class="replay-actions">
+          <button class="bt" id="prev-event" aria-label="Previous key event" title="Previous event">◄ Prev</button>
           <button class="bt pr" id="play" aria-label="Play or pause historical replay">${S.play ? 'Pause' : 'Play'}</button>
+          <button class="bt" id="next-event" aria-label="Next key event" title="Next event">Next ►</button>
           <select id="jump" aria-label="Jump to a key moment">
-            <option value="">Jump to a key moment</option>
+            <option value="">Jump to key moment...</option>
             ${EVENTS.map((e) => `<option value="${e[0]}">${dS(e[0], true)} – ${e[1]}</option>`).join('')}
           </select>
           <button id="replay-close" class="bt q" aria-label="Close replay controls">✕</button>
@@ -125,6 +137,29 @@ export function initHeader() {
       </div>
     </div>
   `;
+
+  // Attach event stepper listeners
+  const prevBtn = document.querySelector('#prev-event');
+  if (prevBtn) {
+    prevBtn.onclick = () => {
+      const past = EVENTS.filter(e => e[0] < S.ms);
+      if (past.length > 0) {
+        S.ms = past[past.length - 1][0];
+        window.dispatchEvent(new CustomEvent('replay-change'));
+      }
+    };
+  }
+
+  const nextBtn = document.querySelector('#next-event');
+  if (nextBtn) {
+    nextBtn.onclick = () => {
+      const upcoming = EVENTS.filter(e => e[0] > S.ms);
+      if (upcoming.length > 0) {
+        S.ms = upcoming[0][0];
+        window.dispatchEvent(new CustomEvent('replay-change'));
+      }
+    };
+  }
 
   // Attach toggle listeners
   const replayBtn = document.querySelector('#replay-toggle');

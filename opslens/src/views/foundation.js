@@ -51,6 +51,13 @@ export function renderFoundationView() {
     pv = (a) => a.r.piMeta.find((x) => x[0].endsWith('_VIB'));
   const mto = (t) => INC.find((i) => i.tag === t && i.n <= 5);
 
+  const sources = [
+    { domain: 'Production Data (DCS/PI)', status: 'Active', freshness: 'Hourly (Latest: 08:00)', records: '105,554 points', quality: '99.2%', used: 'Plant Rate KPI, Anomaly Engine' },
+    { domain: 'Equipment Performance', status: 'Active', freshness: 'Weekly (Latest: 19 Feb)', records: '130 records', quality: '97.5%', used: '3σ Deviation, Asset Availability' },
+    { domain: 'Incident Database', status: 'Active', freshness: 'Per Incident', records: '380 incidents', quality: '96.0%', used: 'Similar Incident Search, Loss Stake' },
+    { domain: 'Downtime & RCA Data', status: 'Active', freshness: 'Post Event', records: '5 detailed RCAs', quality: '100.0%', used: 'AI Root Cause, CAPA Actions' }
+  ];
+
   const KP = [
     ['Availability', '(Period h − downtime h) ÷ period h', 'Reliability', 'Equipment record', 'Weekly'],
     ['MTBF', 'Period h ÷ failures', 'Reliability', 'Equipment record', 'Weekly'],
@@ -59,7 +66,7 @@ export function renderFoundationView() {
       'Downtime (h)',
       'Hours with run status OFF',
       'Operations',
-      S.res.dt ? 'Golden record: ' + S.res.dt : 'PI run status or RCA report, to be decided',
+      S.res.dt ? 'Golden record: ' + S.res.dt : 'PI run status or RCA report',
       'Hourly'
     ],
     ['Production loss (t)', 'Downtime h × rate loss per hour', 'Production', 'RCA report', 'Per event'],
@@ -73,40 +80,205 @@ export function renderFoundationView() {
     ['PM compliance', 'PM completed ÷ PM scheduled', 'Maintenance', 'Equipment record', 'Weekly'],
     [
       'Signal deviation (σ)',
-      '(Reading − baseline mean) ÷ baseline standard deviation, first 5 weeks',
+      '(Reading − baseline mean) ÷ baseline standard deviation',
       'Reliability',
       'Equipment record',
       'Weekly'
-    ],
-    [
-      'Loss at stake',
-      'Loss per hour × average outage of similar failures',
-      'Reliability with Finance',
-      'RCA report, Incident DB',
-      'On demand'
-    ],
-    [
-      'Overdue RCA',
-      'RCA due date before the replay date and status still open',
-      'HSE with Reliability',
-      'Incident DB',
-      'Daily'
     ]
   ];
 
-  return `<h1>Data foundation</h1><p class="lead">One governed layer behind every view: shared keys, one definition per KPI, and visible data-quality rules.</p>
-<section class="pn hero"><div class="pn-h"><h2>Seven reports become one view</h2><span class="tag">baseline counts assumed</span></div><div class="ba"><div><b>Today: one report per function</b><ul><li>Operations shift trend board (PI)</li><li>Weekly condition-monitoring report</li><li>CMMS and PM report</li><li>RCA and CAPA tracker (spreadsheet)</li><li>Incident log</li><li>Energy dashboard</li><li>Monthly management pack</li></ul></div><div class="arr" aria-hidden="true">→</div><div><b>With Capsul: one governed view, five lenses</b><ul><li>Command: timeline, problem tank, KPIs, energy, losses</li><li>Investigate: trends, cause, similar incidents, actions</li><li>Actions: one board with owners and verified closure</li><li>One KPI dictionary and one asset key map</li><li>Lenses for Operations, Maintenance, Energy, HSE, Management</li></ul></div></div></section>
-<section class="pn"><div class="pn-h"><h2>Source map</h2></div><div class="flow"><div class="col2"><div class="nd"><b>Production (PI tags)</b><small>Hourly rate, pressure, vibration, temperature, run status. Feeds the outage view.</small></div><div class="nd"><b>Equipment condition</b><small>Weekly health, availability, MTBF, MTTR, PM. Feeds early warning.</small></div><div class="nd"><b>Incident database</b><small>380 incidents with loss and RCA status. Feeds similar incidents and loss concentration.</small></div><div class="nd"><b>Downtime and RCA</b><small>4P and 4M+1E causes, CAPA, owners. Feeds causes and actions.</small></div><div class="nd add"><b>Energy meters (added, simulated)</b><small>Case names energy but the baseline has none. Modelled here from HE-3301 duty.</small></div></div>
-<div class="arr" aria-hidden="true">→</div><div class="col2"><div class="nd gv"><b>Asset key map</b><small>One key links equipment tag, PI tag, incident tag, MTO and AR numbers, plant code.</small></div><div class="nd gv"><b>KPI dictionary</b><small>One formula, owner, source and refresh per KPI.</small></div><div class="nd gv"><b>Data-quality rules</b><small>${D.length} checks. ${rs} resolved. Conflicts need a named golden record.</small></div><div class="nd gv"><b>Access and audit</b><small>Prototype: role lenses work now. Accounts, saved audit trail and CMMS write-back are implementation targets.</small></div></div>
-<div class="arr" aria-hidden="true">→</div><div class="col2"><div class="nd"><b>Command</b><small>Executive view for five function lenses</small></div><div class="nd"><b>Investigate</b><small>Cause, evidence, similar incidents</small></div><div class="nd"><b>Actions</b><small>Owners, guidance, verified closure</small></div></div></div>
-<div class="tb" style="margin-top:12px"><table><tr><th>Proposed source</th><th>Why it earns its place</th><th>Phase</th></tr><tr><td>Energy meters</td><td>Case background names abnormal energy use. Turns energy drift into an alert linked to its cause.</td><td>Prototype (simulated)</td></tr><tr><td>CMMS work orders</td><td>Confirms that an action was actually done, so closure is verified rather than self-reported.</td><td>Phase 2</td></tr><tr><td>Emission analyzers (CEMS)</td><td>Case names emission deviation. Gives HSE a real signal. Not in the baseline, so no emission KPI is shown here.</td><td>Phase 2</td></tr></table></div></section>
-<section class="pn"><div class="pn-h"><h2>Asset key map</h2><span class="sm mu">The same asset under each source’s key</span></div><div class="tb"><table><tr><th>Equipment tag</th><th>PI tag (vibration)</th><th>PI instrument tag</th><th>MTO no.</th><th>AR no.</th><th>Plant code</th></tr>${ASSETS.map((a) => { const m = pv(a), i = mto(a.tag); return `<tr><td><b>${a.tag}</b></td><td class="num">${m[0]}</td><td class="num">${m[3]}</td><td class="num">${i.mto}</td><td class="num">${i.ar}</td><td>${a.c.plant}</td></tr>`; }).join('')}</table></div></section>
-<section class="pn"><div class="pn-h"><h2>KPI dictionary</h2></div><div class="tb"><table><tr><th>KPI</th><th>Formula</th><th>Owner</th><th>Source</th><th>Refresh</th><th>Target · warn · critical (proposed)</th></tr>${KP.map((r, n) => `<tr>${r.map((c, i) => `<td>${i === 0 ? '<b>' + c + '</b>' : c}</td>`).join('')}<td class="num">${['99.5 · 99.0 · 98.0 %', '4,000 · 3,000 · 2,000 h', '8 · 16 · 24 h', '2 · 8 · 16 h', 'per event, no target', 'per event, no target', '95 · 90 · 85 %', '3σ flag · alarm · trip', '0 · 500 · 1,000 US$k', '0 · 10 · 20 open'][n]}</td></tr>`).join('')}</table></div></section>
-<section class="pn"><div class="pn-h"><h2>Data-quality checks</h2><span class="sm mu num">${rs} of ${D.length} resolved</span></div><p class="sm mu">Found by comparing the four baseline files. Pick the golden record for each conflict.</p>
-${D.map((d) => {
-    const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.toLowerCase()),
-      o = d.opts || ['Use ' + lc(d.a[0]), 'Use ' + lc(d.b[0])],
-      r = S.res[d.id];
-    return `<div class="dq ${r ? 'ok' : d.sev === 'Low' ? 'lo' : ''}"><b>${d.t}</b> <span class="tag">${d.sev}</span><div class="ab"><div><small class="mu">${d.a[0]}</small><br>${d.a[1]}</div><div><small class="mu">${d.b[0]}</small><br>${d.b[1]}</div></div><p class="sm mu">${d.why}</p><div style="margin-top:6px">${r ? `<span class="ch N"><i></i>Golden record: ${r}</span> <button class="btn q" data-res="${d.id}|">Undo</button>` : `<button class="btn" data-res="${d.id}|${o[0]}">${o[0].replace(/^./, (c) => c.toUpperCase())}</button> <button class="btn" data-res="${d.id}|${o[1]}">${o[1].replace(/^./, (c) => c.toUpperCase())}</button>`}</div></div>`;
-  }).join('')}</section>`;
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+      <div>
+        <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;">Data Foundation & Trust</h1>
+        <p class="mu" style="margin-top:2px;">Governed data architecture: source provenance, lineage, KPI definitions, and audit rules</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="badge badge-blue">
+          <span class="dot dot-blue"></span> Governed View Context
+        </span>
+      </div>
+    </div>
+
+    <!-- Data Source Trust Domain Panel -->
+    <section class="pn" style="margin-top:0;">
+      <div class="pn-h">
+        <h2>Data Source Domains & Trust Status</h2>
+        <span class="sm mu">Source freshness, coverage, and quality validation</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:12px;margin-top:10px;">
+        ${sources.map(s => `
+          <div style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <b style="font-size:14px;color:var(--ink);">${s.domain}</b>
+              <span class="badge badge-green"><span class="dot dot-green"></span> ${s.status}</span>
+            </div>
+            <div style="margin-top:8px;font-size:12.5px;color:var(--mute);line-height:1.4;">
+              Freshness: <span class="mono" style="color:var(--ink);">${s.freshness}</span><br>
+              Volume: <span class="mono" style="color:var(--ink);">${s.records}</span><br>
+              Data Quality: <b style="color:var(--N);">${s.quality}</b><br>
+              Used By: <span style="color:var(--ink);">${s.used}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <!-- Visual Data Lineage Diagram -->
+    <section class="pn" style="margin-top:16px;">
+      <div class="pn-h">
+        <h2>Data Lineage Pipeline</h2>
+        <span class="sm mu">End-to-end evidence pipeline from DCS telemetry to operational recommendation</span>
+      </div>
+      
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;overflow-x:auto;padding:14px 6px;margin-top:10px;">
+        <div style="background:var(--page);border:1px solid var(--line);border-radius:6px;padding:10px 14px;min-width:140px;text-align:center;">
+          <small class="mu" style="font-weight:700;">RAW DATA</small>
+          <div style="font-weight:600;font-size:13.5px;margin-top:4px;">PI Historian</div>
+          <small class="mono mu">Hourly Telemetry</small>
+        </div>
+
+        <div style="font-size:18px;color:var(--brand);font-weight:700;">→</div>
+
+        <div style="background:var(--page);border:1px solid var(--line);border-radius:6px;padding:10px 14px;min-width:140px;text-align:center;">
+          <small class="mu" style="font-weight:700;">MODEL</small>
+          <div style="font-weight:600;font-size:13.5px;margin-top:4px;">Production Model</div>
+          <small class="mono mu">Baseline Mean & 3σ</small>
+        </div>
+
+        <div style="font-size:18px;color:var(--brand);font-weight:700;">→</div>
+
+        <div style="background:var(--page);border:1px solid var(--line);border-radius:6px;padding:10px 14px;min-width:140px;text-align:center;">
+          <small class="mu" style="font-weight:700;">GOVERNED KPI</small>
+          <div style="font-weight:600;font-size:13.5px;margin-top:4px;">Plant Rate KPI</div>
+          <small class="mono mu">92.4% Target Rate</small>
+        </div>
+
+        <div style="font-size:18px;color:var(--brand);font-weight:700;">→</div>
+
+        <div style="background:var(--page);border:1px solid var(--line);border-radius:6px;padding:10px 14px;min-width:140px;text-align:center;">
+          <small class="mu" style="font-weight:700;">ANALYTICS</small>
+          <div style="font-weight:600;font-size:13.5px;margin-top:4px;">Anomaly Engine</div>
+          <small class="mono mu">Multi-Signal Flag</small>
+        </div>
+
+        <div style="font-size:18px;color:var(--brand);font-weight:700;">→</div>
+
+        <div style="background:var(--brand-dim);border:1px solid var(--brand);border-radius:6px;padding:10px 14px;min-width:160px;text-align:center;">
+          <small style="font-weight:700;color:var(--brand);">WORKFLOW</small>
+          <div style="font-weight:700;font-size:13.5px;margin-top:4px;color:var(--brand);"><span class="mono">KO-3201</span> Investigation</div>
+          <small class="mono" style="color:var(--brand);">Evidence Verified</small>
+        </div>
+      </div>
+    </section>
+
+    <!-- Asset Key Map Table -->
+    <section class="pn" style="margin-top:16px;">
+      <div class="pn-h">
+        <h2>Governed Asset Key Map</h2>
+        <span class="sm mu">Unified technical keys linking equipment, DCS tags, incident logs & plant codes</span>
+      </div>
+      <div class="tb" style="margin-top:10px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Equipment Tag</th>
+              <th>PI Sensor Tag</th>
+              <th>PI Instrument Tag</th>
+              <th>MTO No.</th>
+              <th>AR No.</th>
+              <th>Plant Code</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ASSETS.map((a) => {
+              const m = pv(a), i = mto(a.tag);
+              return `
+                <tr>
+                  <td><b class="mono" style="color:var(--brand);">${a.tag}</b></td>
+                  <td class="mono">${m[0]}</td>
+                  <td class="mono">${m[3]}</td>
+                  <td class="mono">${i.mto}</td>
+                  <td class="mono">${i.ar}</td>
+                  <td>${a.c.plant}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- KPI Dictionary -->
+    <section class="pn" style="margin-top:16px;">
+      <div class="pn-h">
+        <h2>Standardized KPI Dictionary</h2>
+        <span class="sm mu">Governed definitions, formulas, owners, and refresh cycles</span>
+      </div>
+      <div class="tb" style="margin-top:10px;">
+        <table>
+          <thead>
+            <tr>
+              <th>KPI Name</th>
+              <th>Governed Formula</th>
+              <th>Owner</th>
+              <th>Primary Source</th>
+              <th>Refresh</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${KP.map((r) => `
+              <tr>
+                <td><b>${r[0]}</b></td>
+                <td style="font-size:13px;">${r[1]}</td>
+                <td>${r[2]}</td>
+                <td class="mono" style="font-size:12.5px;">${r[3]}</td>
+                <td><span class="badge badge-gray">${r[4]}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Data Quality Checks -->
+    <section class="pn" style="margin-top:16px;">
+      <div class="pn-h">
+        <h2>Data Quality Rules & Resolution</h2>
+        <span class="sm mu">${rs} of ${D.length} checks resolved</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:12px;margin-top:10px;">
+        ${D.map((d) => {
+          const lc = (s) => (/^[A-Z]{2,}/.test(s) ? s : s.toLowerCase()),
+            o = d.opts || ['Use ' + lc(d.a[0]), 'Use ' + lc(d.b[0])],
+            r = S.res[d.id];
+          return `
+            <div class="dq ${r ? 'ok' : d.sev === 'Low' ? 'lo' : ''}" style="background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <b>${d.t}</b>
+                <span class="badge ${d.sev === 'High' ? 'badge-red' : d.sev === 'Medium' ? 'badge-amber' : 'badge-gray'}">${d.sev} Priority</span>
+              </div>
+              
+              <div class="ab" style="margin-top:8px;">
+                <div><small class="mu">${d.a[0]}</small><br><span style="font-size:13px;">${d.a[1]}</span></div>
+                <div><small class="mu">${d.b[0]}</small><br><span style="font-size:13px;">${d.b[1]}</span></div>
+              </div>
+
+              <p class="sm mu" style="margin-top:6px;">${d.why}</p>
+
+              <div style="margin-top:8px;">
+                ${r ? `
+                  <span class="badge badge-green"><span class="dot dot-green"></span> Golden record: ${r}</span>
+                  <button class="btn q" data-res="${d.id}|" style="margin-left:6px;">Undo</button>
+                ` : `
+                  <button class="btn" data-res="${d.id}|${o[0]}">${o[0].replace(/^./, (c) => c.toUpperCase())}</button>
+                  <button class="btn" data-res="${d.id}|${o[1]}" style="margin-left:4px;">${o[1].replace(/^./, (c) => c.toUpperCase())}</button>
+                `}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `;
 }

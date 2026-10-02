@@ -79,6 +79,49 @@ export function at(a, ms) {
   return o;
 }
 
+export function getRcaLifecycle(assetTag, ms) {
+  const a = byTag(assetTag);
+  if (!a) return { state: 'Not started', title: 'Normal operation', causeText: 'Equipment operating within baseline parameters.', confidence: 0 };
+  
+  const failMs = a.failMs;
+  const flagMs = a.fl >= 0 ? a.t[a.fl] : failMs - 28 * DAY;
+  
+  if (ms < flagMs) {
+    return {
+      state: 'Not started',
+      title: 'Normal operation',
+      causeText: 'Equipment operating within normal baseline parameters.',
+      hindsightPrevented: true,
+      confidence: 0
+    };
+  } else if (ms < failMs) {
+    const st = at(a, ms);
+    return {
+      state: 'Under investigation',
+      title: 'Emerging degradation (Elevated Risk)',
+      causeText: `Multiple condition indicators are deteriorating (${st.ns} signals beyond baseline). Elevated failure risk detected. Root cause not yet verified.`,
+      hindsightPrevented: true,
+      confidence: Math.min(85, 45 + st.ns * 10)
+    };
+  } else if (ms < failMs + 7 * DAY) {
+    return {
+      state: 'Probable cause',
+      title: 'Post-event RCA under review',
+      causeText: `Unit tripped on ${dS(failMs, true)}. Primary hypothesis: ${a.c.prof.cause}. Verification pending final teardown report.`,
+      hindsightPrevented: false,
+      confidence: 90
+    };
+  } else {
+    return {
+      state: 'Verified',
+      title: 'Root Cause Verified',
+      causeText: a.c.prof.cause,
+      hindsightPrevented: false,
+      confidence: 96
+    };
+  }
+}
+
 export const FN = ['Criticality class', 'Signal agreement', 'Time to trip', 'Cost if it fails'];
 
 export function score(a, st) {
