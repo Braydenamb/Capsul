@@ -303,14 +303,26 @@ export function renderInvestigateView() {
       const key = a.tag + '|' + n,
         cr = S.created[key],
         imp = !cr && S.ms >= a.failMs + DAY;
-      return `<div class="act" style="border-top:1px solid var(--line-subtle);padding:10px 0;">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="ty ${x.ty}">${x.ty}</span>
-          <b style="font-size:14px;color:var(--ink);">${x.t}</b>
+      return `<div class="act-card" style="background:var(--page);border:1px solid var(--line);border-radius:6px;padding:12px;margin-bottom:10px;">
+        <div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+          <span class="ty ${x.ty}" style="flex-shrink:0;">${x.ty}</span>
+          <b style="font-size:13.5px;color:var(--ink);line-height:1.4;flex:1;">${x.t}</b>
         </div>
-        <div class="sm mu" style="margin-top:4px;">PIC: ${x.pic}. ${cr ? 'Due ' + dS(cr.due, true) : 'Proposed due ' + dS(S.ms + OFF[x.ty] * DAY, true)}.</div>
-        <details class="gd" ${n === 0 ? 'open' : ''} style="margin-top:6px;"><summary style="cursor:pointer;color:var(--brand);font-weight:500;">Risk & Countermeasure</summary><div style="font-size:12.5px;color:var(--mute);margin-top:4px;">Risk: ${x.risk}<br>Countermeasure: ${x.ctr}</div></details>
-        <div style="margin-top:8px;"><button class="btn pr" data-mk="${key}" ${cr || imp ? 'disabled' : ''}>${cr ? 'On the Action Board' : imp ? 'Recorded in RCA' : 'Create Action Assignment'}</button></div>
+        <div class="sm mu" style="margin-top:6px;font-size:12px;">
+          PIC: <b>${x.pic}</b> &middot; ${cr ? 'Due ' + dS(cr.due, true) : 'Proposed due ' + dS(S.ms + OFF[x.ty] * DAY, true)}
+        </div>
+        <details class="notion-toggle" ${n === 0 ? 'open' : ''} style="margin-top:8px;border-top:1px dashed var(--line-subtle);padding-top:6px;">
+          <summary style="cursor:pointer;color:var(--brand);font-weight:500;font-size:12px;">Risk & Countermeasure</summary>
+          <div style="font-size:12px;color:var(--mute);margin-top:4px;line-height:1.4;">
+            <b>Risk:</b> ${x.risk}<br>
+            <b>Countermeasure:</b> ${x.ctr}
+          </div>
+        </details>
+        <div style="margin-top:10px;">
+          <button class="btn pr sm" data-mk="${key}" ${cr || imp ? 'disabled' : ''} style="padding:4px 10px;font-size:12px;">
+            ${cr ? 'On the Action Board' : imp ? 'Recorded in RCA' : 'Create Action Assignment'}
+          </button>
+        </div>
       </div>`;
     })
     .join('');

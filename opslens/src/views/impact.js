@@ -111,20 +111,6 @@ export function renderImpactView() {
 
     ${scorecard()}
 
-    <section class="pn" style="margin-top:16px;">
-      <div class="pn-h">
-        <h2>Scenario for the Whole Plant Estate</h2>
-        <span class="tag">scenario · estimated value model</span>
-      </div>
-      <div class="wk" style="margin-top:10px;">
-        <label>Share of addressable failures caught early: <b class="num" id="v-cap">${S.I.cap}%</b><input type="range" min="0" max="100" value="${S.I.cap}" data-im="cap" aria-label="Share caught early"></label>
-        <label>Share of loss avoided when caught early: <b class="num" id="v-red">${S.I.red}%</b><input type="range" min="0" max="100" value="${S.I.red}" data-im="red" aria-label="Share of loss avoided"></label>
-        <label>Validation hours saved per incident: <b class="num" id="v-hrs">${S.I.hrs} h</b><input type="range" min="0" max="20" value="${S.I.hrs}" data-im="hrs" aria-label="Hours saved per incident"></label>
-      </div>
-      <div id="imres" style="margin-top:12px;">${impRes()}</div>
-      <p class="note" style="margin-top:10px;">Numbers logged up to ${curDateStr}: ${pastInc.length} of ${INC.length} incidents logged (${Math.round(td).toLocaleString('en-US')} h downtime, ${fmtK(tl)} loss). Addressable failure modes (leakage, vibration, overheating, fouling, wear, loosening, cracking) account for ${tl > 0 ? Math.round((pl / tl) * 100) : 0}% of cumulative loss.</p>
-    </section>
-
     <div class="g2" style="margin-top:16px;">
       <section class="pn">
         <div class="pn-h">
