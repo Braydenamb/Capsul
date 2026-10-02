@@ -25,22 +25,37 @@ const VIEW = {
   imp: renderImpactView
 };
 
+export function getTabFromHash() {
+  const hash = window.location.hash.replace('#', '').trim();
+  const validTabs = ['cmd', 'inv', 'act', 'fnd', 'imp'];
+  return validTabs.includes(hash) ? hash : null;
+}
+
+export function syncRoute() {
+  const hashTab = getTabFromHash();
+  const user = getCurrentUser();
+  if (hashTab && canAccessView(hashTab)) {
+    S.tab = hashTab;
+  } else if (!canAccessView(S.tab)) {
+    S.tab = (user && (user.defaultView || user.allowedViews[0])) || 'cmd';
+    try { history.replaceState(null, '', '#' + S.tab); } catch(e) { window.location.hash = S.tab; }
+  } else if (!hashTab) {
+    try { history.replaceState(null, '', '#' + S.tab); } catch(e) { window.location.hash = S.tab; }
+  }
+}
+
 export function render() {
   if (!isAuthenticated()) {
     initHeader();
     renderLoginView(() => {
       initHeader();
+      syncRoute();
       render();
     });
     return;
   }
 
-  // Enforce View-level RBAC
-  const user = getCurrentUser();
-  if (!canAccessView(S.tab)) {
-    S.tab = user.defaultView || 'cmd';
-  }
-
+  syncRoute();
   calc();
   initHeader();
   head();
@@ -57,9 +72,27 @@ export function go(t, scroll = true) {
     return;
   }
   S.tab = t;
+  if (window.location.hash !== '#' + t) {
+    window.location.hash = t;
+  }
   render();
   if (scroll) window.scrollTo(0, 0);
 }
+
+window.addEventListener('hashchange', () => {
+  const tab = getTabFromHash();
+  if (tab && tab !== S.tab && canAccessView(tab)) {
+    S.tab = tab;
+    render();
+  }
+});
+window.addEventListener('popstate', () => {
+  const tab = getTabFromHash();
+  if (tab && tab !== S.tab && canAccessView(tab)) {
+    S.tab = tab;
+    render();
+  }
+});
 
 let pend = false;
 export const sched = () => {
