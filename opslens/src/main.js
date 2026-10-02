@@ -1,7 +1,7 @@
 import './styles/main.css';
 
 import { state as S } from './core/state.js';
-import { D0, DAY, dS, nf, clamp } from './core/formatting.js';
+import { D0, DAY, dS, nf, clamp, MON, NM } from './core/formatting.js';
 import { calc, T0, T1, NDAYS, byTag, at, HEALTHY, impRes } from './core/analytics.js';
 import { initHeader, head } from './components/header.js';
 import { cap, capOff, openModal } from './components/modal.js';
@@ -398,31 +398,15 @@ document.addEventListener('change', (e) => {
 });
 
 // Synchronized Telemetry Charts Crosshair & Tooltip inspection
-document.addEventListener('pointermove', (e) => {
-  const mg = e.target.closest('.mg');
-  if (!mg) {
-    document.querySelectorAll('.ch-overlay').forEach(el => el.style.display = 'none');
-    return;
-  }
-  const svg = e.target.closest('svg.telemetry-svg');
-  if (!svg) {
-    document.querySelectorAll('.ch-overlay').forEach(el => el.style.display = 'none');
-    return;
-  }
-  const rect = svg.getBoundingClientRect();
-  const pl = 40, pr = 10, W = 330, H = 130, pt = 14, pb = 20;
-  const xMouse = e.clientX - rect.left;
-  const scaleX = W / rect.width;
-  const xSvg = xMouse * scaleX;
+// pinned state: stores {frac} when user clicks to freeze the crosshair
+let chPinned = null;
+
+function updateCrosshair(mg, frac) {
+  const pl = 40, pr = 10, W = 330, H = 148, pt = 14, pb = 34;
   const xDot = W - pr;
-
-  if (xSvg < pl || xSvg > xDot) {
-    document.querySelectorAll('.ch-overlay').forEach(el => el.style.display = 'none');
-    return;
-  }
-
-  const frac = (xSvg - pl) / (xDot - pl);
   const panels = mg.querySelectorAll('.mc');
+  const STATE_LABELS = { N: 'Normal', W: 'Watch', A: 'Alarm', T: 'Trip', R: 'Recovery' };
+  const STATE_COLORS = { N: 'var(--N)', W: 'var(--W)', A: 'var(--A)', T: 'var(--T)', R: 'var(--brand)' };
 
   panels.forEach((panel) => {
     const pSvg = panel.querySelector('svg.telemetry-svg');
@@ -435,56 +419,159 @@ document.addEventListener('pointermove', (e) => {
       const lo = +pSvg.dataset.lo;
       const hi = +pSvg.dataset.hi;
       const unit = pSvg.dataset.u || '';
+      const alarmLim = +pSvg.dataset.al;
+      const tripLim = +pSvg.dataset.tr;
+      let states = [];
+      try { states = JSON.parse(pSvg.dataset.states || '[]'); } catch(e) {}
 
       const tStart = +pSvg.dataset.tstart;
       const tEnd = +pSvg.dataset.tend;
       const tHover = tStart + frac * (tEnd - tStart);
 
-      let val = vData[vData.length - 1];
+      // Find nearest reading index and interpolate value
+      // Don't interpolate across the trip→recovery gap (index 20→21)
+      let val = null;
+      let nearIdx = -1;
+      let inOutage = false;
       if (tData.length > 0) {
         let k = 0;
         while (k < tData.length - 1 && tData[k + 1] <= tHover) k++;
-        if (k < tData.length - 1) {
+        nearIdx = k;
+        // Check if hovering inside the outage gap (between index 20 and 21)
+        if (k === 20 && tData.length > 21 && tHover > tData[20] && tHover < tData[21]) {
+          inOutage = true;
+          val = null;
+        } else if (k < tData.length - 1) {
           const t0 = tData[k], t1 = tData[k + 1];
           const f = t1 > t0 ? (tHover - t0) / (t1 - t0) : 0;
           val = vData[k] + f * (vData[k + 1] - vData[k]);
         } else {
-          val = vData[k] ?? val;
+          val = vData[k] ?? null;
         }
       }
 
       const xPos = pl + frac * (xDot - pl);
-      const yPos = pt + ((hi - val) / (hi - lo || 1)) * (H - pt - pb);
+
+      // Determine state at this point
+      const stateKey = nearIdx >= 0 && nearIdx < states.length ? states[nearIdx] : 'N';
+      const stateLabel = STATE_LABELS[stateKey] || 'Normal';
+      const dotColor = STATE_COLORS[stateKey] || 'var(--brand)';
 
       const line = overlay.querySelector('.ch-v');
       const circle = overlay.querySelector('.ch-c');
       const tipG = overlay.querySelector('.ch-tip');
-      const tipTxt = overlay.querySelector('.ch-tip-txt');
+      const tipL1 = overlay.querySelector('.ch-tip-l1');
+      const tipL2 = overlay.querySelector('.ch-tip-l2');
 
       if (line) {
         line.setAttribute('x1', xPos.toFixed(1));
         line.setAttribute('x2', xPos.toFixed(1));
       }
-      if (circle) {
-        circle.setAttribute('cx', xPos.toFixed(1));
-        circle.setAttribute('cy', yPos.toFixed(1));
-      }
-      if (tipG) {
-        const tipX = Math.max(pl + 45, Math.min(xDot - 45, xPos));
-        tipG.setAttribute('transform', `translate(${tipX.toFixed(1)}, 30)`);
-      }
-      if (tipTxt) {
-        const d = new Date(tHover);
-        const dStr = `${d.getUTCDate()} ${MON[d.getUTCMonth()]}`;
-        tipTxt.textContent = `${dStr}: ${nf(val)} ${unit}`;
+
+      if (inOutage || val === null) {
+        // Hide circle inside outage, show outage label
+        if (circle) { circle.setAttribute('cx', '-10'); circle.setAttribute('cy', '-10'); }
+        if (tipG) {
+          const tipX = Math.max(pl + 58, Math.min(xDot - 58, xPos));
+          tipG.setAttribute('transform', `translate(${tipX.toFixed(1)}, 30)`);
+        }
+        if (tipL1) {
+          const d = new Date(tHover);
+          tipL1.textContent = `${d.getUTCDate()} ${MON[d.getUTCMonth()]}: OUTAGE`;
+          tipL1.style.fill = 'var(--T)';
+        }
+        if (tipL2) tipL2.textContent = 'Equipment offline';
+      } else {
+        const yPos = pt + ((hi - val) / (hi - lo || 1)) * (H - pt - pb);
+        if (circle) {
+          circle.setAttribute('cx', xPos.toFixed(1));
+          circle.setAttribute('cy', yPos.toFixed(1));
+          circle.setAttribute('fill', dotColor);
+        }
+        if (tipG) {
+          const tipX = Math.max(pl + 58, Math.min(xDot - 58, xPos));
+          tipG.setAttribute('transform', `translate(${tipX.toFixed(1)}, 30)`);
+        }
+        if (tipL1) {
+          const d = new Date(tHover);
+          const dStr = `${d.getUTCDate()} ${MON[d.getUTCMonth()]}`;
+          tipL1.textContent = `${dStr}: ${nf(val)} ${unit}`;
+          tipL1.style.fill = '#ffffff';
+        }
+        if (tipL2) {
+          tipL2.textContent = `${stateLabel} · al ${nf(alarmLim)} · tr ${nf(tripLim)}`;
+        }
       }
 
       overlay.style.display = 'block';
     } catch(err) {}
   });
+}
+
+document.addEventListener('pointermove', (e) => {
+  if (chPinned) return; // Don't update if pinned
+  const mg = e.target.closest('.mg');
+  if (!mg) {
+    document.querySelectorAll('.ch-overlay').forEach(el => el.style.display = 'none');
+    return;
+  }
+  const svg = e.target.closest('svg.telemetry-svg');
+  if (!svg) {
+    document.querySelectorAll('.ch-overlay').forEach(el => el.style.display = 'none');
+    return;
+  }
+  const rect = svg.getBoundingClientRect();
+  const pl = 40, pr = 10, W = 330;
+  const xMouse = e.clientX - rect.left;
+  const scaleX = W / rect.width;
+  const xSvg = xMouse * scaleX;
+  const xDot = W - pr;
+
+  if (xSvg < pl || xSvg > xDot) {
+    document.querySelectorAll('.ch-overlay').forEach(el => el.style.display = 'none');
+    return;
+  }
+
+  const frac = (xSvg - pl) / (xDot - pl);
+  updateCrosshair(mg, frac);
+});
+
+// Click to pin/unpin crosshair
+document.addEventListener('click', (e) => {
+  const mg = e.target.closest('.mg');
+  const svg = e.target.closest('svg.telemetry-svg');
+  if (!mg || !svg) {
+    if (chPinned) {
+      chPinned = null;
+      document.querySelectorAll('.ch-overlay').forEach(el => el.style.display = 'none');
+    }
+    return;
+  }
+  // Don't interfere with other click handlers
+  if (e.target.closest('button, [data-tab], [data-open], [data-ev]')) return;
+
+  const rect = svg.getBoundingClientRect();
+  const pl = 40, pr = 10, W = 330;
+  const xMouse = e.clientX - rect.left;
+  const scaleX = W / rect.width;
+  const xSvg = xMouse * scaleX;
+  const xDot = W - pr;
+
+  if (xSvg < pl || xSvg > xDot) return;
+  const frac = (xSvg - pl) / (xDot - pl);
+
+  if (chPinned && Math.abs(chPinned.frac - frac) < 0.02) {
+    // Clicking near the pinned location unpins
+    chPinned = null;
+    document.querySelectorAll('.ch-overlay').forEach(el => el.style.display = 'none');
+  } else {
+    chPinned = { mg, frac };
+    updateCrosshair(mg, frac);
+  }
 });
 
 document.addEventListener('pointerleave', (e) => {
+  if (chPinned) return;
   if (e.target && e.target.closest && e.target.closest('.mg')) {
     document.querySelectorAll('.ch-overlay').forEach(el => el.style.display = 'none');
   }

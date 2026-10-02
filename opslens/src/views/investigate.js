@@ -13,11 +13,11 @@ export function multiple(a, j, s) {
   const sg = a.sig[j],
     v = a.r.v[j],
     W = 330,
-    H = 130,
+    H = 148,
     pl = 40,
     pr = 10,
     pt = 14,
-    pb = 20;
+    pb = 34;
 
   let lo = Math.min(...v, sg.al, sg.tr),
     hi = Math.max(...v, sg.al, sg.tr);
@@ -36,7 +36,11 @@ export function multiple(a, j, s) {
   const b = a.base[j];
   const P = (p) => p.map((q) => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' ');
 
-  // Compute smooth current value at `now`
+  // Trip index = 20, recovery starts index 21
+  const tripMs = a.t[20];
+  const recoveryMs = a.t[21];
+
+  // Compute current value at `now` — no interpolation across the outage gap
   let curVal = null;
   if (now >= a.t[0]) {
     if (now >= a.t[25]) {
@@ -44,26 +48,36 @@ export function multiple(a, j, s) {
     } else {
       let k = 0;
       while (k < 25 && a.t[k + 1] <= now) k++;
-      const t0 = a.t[k],
-        t1 = a.t[k + 1];
-      const frac = t1 > t0 ? (now - t0) / (t1 - t0) : 0;
-      curVal = v[k] + frac * (v[k + 1] - v[k]);
+      // Don't interpolate across the trip→recovery boundary
+      if (k === 20 && now > tripMs && now < recoveryMs) {
+        curVal = null; // Inside outage window
+      } else {
+        const t0 = a.t[k],
+          t1 = a.t[k + 1];
+        const frac = t1 > t0 ? (now - t0) / (t1 - t0) : 0;
+        curVal = v[k] + frac * (v[k + 1] - v[k]);
+      }
     }
   }
 
-  // Build the historical trace within the 3-month window
-  const pts = [];
+  // Build TWO separate trace segments: pre-trip and post-recovery
+  const prePts = [];
+  const postPts = [];
   const sampleDots = [];
+  const inOutage = now > tripMs && now < recoveryMs;
+
   if (now >= a.t[0]) {
-    // Left boundary segment: interpolate if data starts before the window
+    // Left boundary: interpolate if data starts before the window
     if (a.t[0] < tStart) {
       let k = 0;
       while (k < 25 && a.t[k + 1] <= tStart) k++;
-      const t0 = a.t[k],
-        t1 = a.t[k + 1];
-      const frac = t1 > t0 ? (tStart - t0) / (t1 - t0) : 0;
-      const yStart = v[k] + frac * (v[k + 1] - v[k]);
-      pts.push([pl, Y(yStart)]);
+      if (k < 20) { // only if pre-trip data
+        const t0 = a.t[k],
+          t1 = a.t[k + 1];
+        const frac = t1 > t0 ? (tStart - t0) / (t1 - t0) : 0;
+        const yStart = v[k] + frac * (v[k + 1] - v[k]);
+        prePts.push([pl, Y(yStart)]);
+      }
     }
 
     // Weekly readings strictly inside [tStart, now]
@@ -71,14 +85,25 @@ export function multiple(a, j, s) {
       const tk = a.t[k];
       if (tk >= tStart && tk <= now) {
         const ptCoord = [X(tk), Y(v[k])];
-        pts.push(ptCoord);
+        const isPreTrip = k <= 20;
+        const isPostRecovery = k >= 21;
+
+        if (isPreTrip) {
+          prePts.push(ptCoord);
+        } else if (isPostRecovery) {
+          postPts.push(ptCoord);
+        }
         sampleDots.push({ x: ptCoord[0], y: ptCoord[1], t: tk, val: v[k], idx: k });
       }
     }
 
-    // Final point: connect smoothly to the current dot at (xDot, Y(curVal))
+    // Final point: connect to the current dot, but only on the correct segment
     if (curVal !== null) {
-      pts.push([xDot, Y(curVal)]);
+      if (now <= tripMs) {
+        prePts.push([xDot, Y(curVal)]);
+      } else if (now >= recoveryMs) {
+        postPts.push([xDot, Y(curVal)]);
+      }
     }
   }
 
@@ -100,11 +125,28 @@ export function multiple(a, j, s) {
   const lab = (y, t, c) =>
     `<text x="${pl + 3}" y="${y - 3 < pt - 2 ? y + 10 : y - 3}" text-anchor="start" style="fill:var(${c});font-size:9.5px;font-weight:600;opacity:.88">${t}</text>`;
 
-  // 1. Base SVG and baseline ±3σ band
-  let o = `<svg class="telemetry-svg" data-u="${sg.u}" data-tstart="${tStart}" data-tend="${tEnd}" data-lo="${lo.toFixed(2)}" data-hi="${hi.toFixed(2)}" data-v='${JSON.stringify(v)}' data-t='${JSON.stringify(a.t)}' viewBox="0 0 ${W} ${H}" role="img" aria-label="${a.tag} ${sg.n}, 3-month rolling condition telemetry"><rect x="${pl}" y="${Math.min(Y(b.m + 3 * b.sd), Y(b.m - 3 * b.sd))}" width="${W - pl - pr}" height="${Math.abs(Y(b.m - 3 * b.sd) - Y(b.m + 3 * b.sd))}" fill="var(--N)" opacity=".14"/>
+  // Store lifecycle state boundaries and thresholds in data attributes for tooltip
+  const stateData = JSON.stringify(a.wst);
+
+  // 1. Base SVG, baseline ±3σ band
+  let o = `<svg class="telemetry-svg" data-u="${sg.u}" data-tstart="${tStart}" data-tend="${tEnd}" data-lo="${lo.toFixed(2)}" data-hi="${hi.toFixed(2)}" data-v='${JSON.stringify(v)}' data-t='${JSON.stringify(a.t)}' data-al="${sg.al}" data-tr="${sg.tr}" data-states='${stateData}' data-sigdir="${sg.d}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${a.tag} ${sg.n}, 3-month rolling condition telemetry"><rect x="${pl}" y="${Math.min(Y(b.m + 3 * b.sd), Y(b.m - 3 * b.sd))}" width="${W - pl - pr}" height="${Math.abs(Y(b.m - 3 * b.sd) - Y(b.m + 3 * b.sd))}" fill="var(--N)" opacity=".14"/>
   <line x1="${pl}" x2="${W - pr}" y1="${Y(sg.al)}" y2="${Y(sg.al)}" stroke="var(--A)" stroke-dasharray="4 3"/>${lab(Y(sg.al), 'alarm ' + nf(sg.al), '--A')}<line x1="${pl}" x2="${W - pr}" y1="${Y(sg.tr)}" y2="${Y(sg.tr)}" stroke="var(--T)" stroke-dasharray="4 3"/>${lab(Y(sg.tr), 'trip ' + nf(sg.tr), '--T')}`;
 
-  // 2. Month ticks along the rolling 3-month window
+  // 2. Outage/Intervention shading: between trip and recovery, if both are within view
+  if (now > tripMs && tripMs >= tStart) {
+    const outEnd = Math.min(now, recoveryMs);
+    const x1o = X(tripMs);
+    const x2o = now >= recoveryMs ? X(recoveryMs) : xDot;
+    o += `<rect x="${x1o.toFixed(1)}" y="${pt}" width="${(x2o - x1o).toFixed(1)}" height="${H - pt - pb}" fill="var(--T)" opacity=".08" rx="2"/>`;
+    o += `<line x1="${x1o.toFixed(1)}" x2="${x1o.toFixed(1)}" y1="${pt}" y2="${H - pb}" stroke="var(--T)" stroke-width="1.8" stroke-dasharray="3 2"/>`;
+    // Outage label
+    const midX = (x1o + x2o) / 2;
+    if (x2o - x1o > 30) {
+      o += `<text x="${midX.toFixed(1)}" y="${pt + 11}" text-anchor="middle" style="font-size:9px;fill:var(--T);font-weight:600;opacity:.7;letter-spacing:.03em">OUTAGE</text>`;
+    }
+  }
+
+  // 3. Month ticks along the rolling 3-month window
   const startD = new Date(tStart);
   let curY = startD.getUTCFullYear();
   let curM = startD.getUTCMonth();
@@ -130,15 +172,14 @@ export function multiple(a, j, s) {
     o += `<line x1="${mx.toFixed(1)}" x2="${mx.toFixed(1)}" y1="${pt}" y2="${H - pb}" stroke="var(--line)" opacity=".25" stroke-dasharray="2 3"/>`;
     o += `<line x1="${mx.toFixed(1)}" x2="${mx.toFixed(1)}" y1="${H - pb}" y2="${H - pb + 4}" stroke="var(--mute)" opacity=".6"/>`;
     if (mx - pl > 22 && xDot - mx > 24) {
-      o += `<text x="${mx.toFixed(1)}" y="${H - 4}" text-anchor="middle" style="font-size:9.5px;fill:var(--mute)">${mt.label}</text>`;
+      o += `<text x="${mx.toFixed(1)}" y="${H - pb + 14}" text-anchor="middle" style="font-size:9.5px;fill:var(--mute)">${mt.label}</text>`;
     }
   });
 
-  // 3. Operational milestone lines within this rolling window (AI flag, DCS alarm, Trip)
+  // 4. Operational milestone lines within this rolling window (AI flag, DCS alarm)
   [
     [a.fl >= 0 ? a.t[a.fl] : null, 'AI', '--W'],
-    [a.t[a.al], 'DCS', '--A'],
-    [a.t[20], 'Trip', '--T']
+    [a.t[a.al], 'DCS', '--A']
   ].forEach(([t, l, c]) => {
     if (t !== null && t <= now && t >= tStart) {
       const ex = X(t);
@@ -146,43 +187,71 @@ export function multiple(a, j, s) {
     }
   });
 
-  // 4. Past trace polyline (trailing behind the dot)
-  if (pts.length > 1) {
-    o += `<polyline points="${P(pts)}" fill="none" stroke="var(--brand)" stroke-width="${S.ev && on ? 3.2 : 2.2}"/>`;
+  // 5. TWO SEPARATE trace polylines — breaks at trip, no diagonal across outage
+  const strokeW = S.ev && on ? 3.2 : 2.2;
+  if (prePts.length > 1) {
+    o += `<polyline points="${P(prePts)}" fill="none" stroke="var(--brand)" stroke-width="${strokeW}"/>`;
+  }
+  if (postPts.length > 1) {
+    o += `<polyline points="${P(postPts)}" fill="none" stroke="var(--N)" stroke-width="${strokeW}" stroke-dasharray="4 3"/>`;
   }
 
-  // 5. Past reading dots
+  // 6. Past reading dots — color by state
+  const stCol = (idx) => idx > 20 ? 'var(--N)' : idx === 20 ? 'var(--T)' : a.wst[idx] === 'A' ? 'var(--A)' : a.wst[idx] === 'W' ? 'var(--W)' : 'var(--brand)';
   sampleDots.forEach((d) => {
     if (Math.abs(d.x - xDot) > 3) {
-      o += `<circle cx="${d.x.toFixed(1)}" cy="${d.y.toFixed(1)}" r="2" fill="var(--brand)" opacity=".65"><title>${dS(d.t, true)}: ${fmtSig(a, j, d.idx)}</title></circle>`;
+      const dc = stCol(d.idx);
+      const r = d.idx === 20 ? 4 : 2;
+      o += `<circle cx="${d.x.toFixed(1)}" cy="${d.y.toFixed(1)}" r="${r}" fill="${dc}" opacity="${d.idx === 20 ? 1 : .65}"><title>${dS(d.t, true)}: ${fmtSig(a, j, d.idx)}${d.idx === 20 ? ' ⚠ TRIP' : ''}</title></circle>`;
     }
   });
 
-  // 6. The current dot: stationary at xDot, moving only in y-coordinate
+  // 7. The current dot: stationary at xDot, moving only in y-coordinate
   o += `<line x1="${xDot}" x2="${xDot}" y1="${pt}" y2="${H - pb}" stroke="var(--ink)" opacity=".22" stroke-dasharray="2 2"/>`;
   if (curVal !== null) {
     const yDot = Y(curVal);
     o += `<circle cx="${xDot}" cy="${yDot.toFixed(1)}" r="7" fill="${col}" opacity=".22"/>`;
     o += `<circle cx="${xDot}" cy="${yDot.toFixed(1)}" r="4.2" fill="${col}" stroke="var(--panel, #fff)" stroke-width="1.6"><title>${dS(now, true)}: ${nf(curVal)} ${sg.u}</title></circle>`;
+  } else if (inOutage) {
+    // Show outage indicator at the dot position
+    o += `<text x="${xDot}" y="${Y((lo + hi) / 2)}" text-anchor="middle" style="font-size:10px;fill:var(--T);font-weight:700">⏸</text>`;
   }
 
-  // 7. Y-axis min/max and X-axis date boundaries
+  // 8. Lifecycle color strip at the bottom of the chart
+  const stripY = H - pb + 2;
+  const stripH = 5;
+  const stColors = { N: 'var(--N)', W: 'var(--W)', A: 'var(--A)', T: 'var(--T)', R: 'var(--brand)' };
+  for (let k = 0; k < a.t.length; k++) {
+    const tk = a.t[k];
+    const tkNext = k < 25 ? a.t[k + 1] : tk + 7 * DAY;
+    if (tkNext < tStart || tk > now) continue;
+    const xL = Math.max(pl, X(Math.max(tk, tStart)));
+    const xR = Math.min(xDot, X(Math.min(tkNext, now)));
+    if (xR <= xL) continue;
+    const sc = stColors[a.wst[k]] || 'var(--mute)';
+    o += `<rect x="${xL.toFixed(1)}" y="${stripY}" width="${(xR - xL).toFixed(1)}" height="${stripH}" fill="${sc}" opacity=".75" rx="1"/>`;
+  }
+  // Strip legend (tiny)
+  o += `<text x="${pl}" y="${stripY + stripH + 9}" text-anchor="start" style="font-size:8px;fill:var(--mute);letter-spacing:.03em">N  W  A  T  R</text>`;
+
+  // 9. Y-axis min/max
   o += `<text x="${pl - 4}" y="${pt + 4}" text-anchor="end">${nf(hi)}</text>`;
   o += `<text x="${pl - 4}" y="${H - pb}" text-anchor="end">${nf(lo)}</text>`;
-  o += `<text x="${pl}" y="${H - 4}" text-anchor="start" style="font-size:9.5px;fill:var(--mute)">${dS(tStart)}</text>`;
-  o += `<text x="${xDot}" y="${H - 4}" text-anchor="end" style="font-size:10px;font-weight:600;fill:var(--brand)">${dS(tEnd)}</text>`;
+
+  // 10. Crosshair overlay group with richer tooltip (2-line)
   o += `<g class="ch-overlay" style="display:none;pointer-events:none;">
     <line class="ch-v" x1="0" x2="0" y1="${pt}" y2="${H - pb}" stroke="var(--ink)" stroke-dasharray="2 2" stroke-width="1.2" opacity="0.65"/>
     <circle class="ch-c" cx="0" cy="0" r="4" fill="var(--brand)" stroke="var(--panel, #fff)" stroke-width="1.5"/>
     <g class="ch-tip" transform="translate(0, 30)">
-      <rect class="ch-tip-bg" x="-45" y="-18" width="90" height="18" rx="3" fill="var(--chrome, #0B1924)" opacity="0.92"/>
-      <text class="ch-tip-txt" x="0" y="-5" text-anchor="middle" style="fill:#ffffff;font-size:10px;font-weight:600;font-family:var(--fm);"></text>
+      <rect class="ch-tip-bg" x="-58" y="-28" width="116" height="28" rx="4" fill="var(--chrome, #0B1924)" opacity="0.92"/>
+      <text class="ch-tip-l1" x="0" y="-16" text-anchor="middle" style="fill:#ffffff;font-size:10px;font-weight:600;font-family:var(--fm);"></text>
+      <text class="ch-tip-l2" x="0" y="-4" text-anchor="middle" style="fill:var(--mute);font-size:9px;font-family:var(--fm);"></text>
     </g>
   </g>`;
   o += `</svg>`;
 
   const sgm = (val) => (val > 10 ? 'over 10σ' : val.toFixed(1) + 'σ');
-  return `<div class="mc ${S.ev ? (on ? 'on' : 'off') : ''}"><div class="mh"><span class="mn">${sg.n}</span><span class="mv" style="color:${col}">${cur === null ? 'not monitored yet' : nf(cur) + ' ' + sg.u}</span><span class="sg">${cur === null ? '' : z > 0 ? sgm(z) : 'baseline'}</span></div>${o}</div>`;
+  return `<div class="mc ${S.ev ? (on ? 'on' : 'off') : ''}"><div class="mh"><span class="mn">${sg.n}</span><span class="mv" style="color:${col}">${cur === null ? (inOutage ? 'OUTAGE' : 'not monitored yet') : nf(cur) + ' ' + sg.u}</span><span class="sg">${cur === null ? '' : z > 0 ? sgm(z) : 'baseline'}</span></div>${o}</div>`;
 }
 
 export function outage(a) {
@@ -358,7 +427,7 @@ export function renderInvestigateView() {
         <section class="pn" style="margin-top:0;">
           <div class="pn-h">
             <h3>Synchronized Condition Telemetry & Thresholds</h3>
-            <span class="sm mu">Rolling 3-month telemetry. Green band = 5-week baseline ±3σ. Dashed lines = DCS alarm and trip limits.</span>
+            <span class="sm mu">Rolling 3-month telemetry. Green band = baseline ±3σ. Dashed lines = DCS alarm/trip. Trace breaks at trip with outage shading. Color strip = lifecycle state. Click chart to pin inspection.</span>
           </div>
           <div class="mg" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:12px;margin-top:10px;">
             ${[0, 1, 2, 3].map((j) => multiple(a, j, s)).join('')}
