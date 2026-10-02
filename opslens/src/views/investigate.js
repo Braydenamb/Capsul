@@ -101,7 +101,7 @@ export function multiple(a, j, s) {
     `<text x="${pl + 3}" y="${y - 3 < pt - 2 ? y + 10 : y - 3}" text-anchor="start" style="fill:var(${c});font-size:9.5px;font-weight:600;opacity:.88">${t}</text>`;
 
   // 1. Base SVG and baseline ±3σ band
-  let o = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${a.tag} ${sg.n}, 3-month rolling condition telemetry"><rect x="${pl}" y="${Math.min(Y(b.m + 3 * b.sd), Y(b.m - 3 * b.sd))}" width="${W - pl - pr}" height="${Math.abs(Y(b.m - 3 * b.sd) - Y(b.m + 3 * b.sd))}" fill="var(--N)" opacity=".14"/>
+  let o = `<svg class="telemetry-svg" data-u="${sg.u}" data-tstart="${tStart}" data-tend="${tEnd}" data-lo="${lo.toFixed(2)}" data-hi="${hi.toFixed(2)}" data-v='${JSON.stringify(v)}' data-t='${JSON.stringify(a.t)}' viewBox="0 0 ${W} ${H}" role="img" aria-label="${a.tag} ${sg.n}, 3-month rolling condition telemetry"><rect x="${pl}" y="${Math.min(Y(b.m + 3 * b.sd), Y(b.m - 3 * b.sd))}" width="${W - pl - pr}" height="${Math.abs(Y(b.m - 3 * b.sd) - Y(b.m + 3 * b.sd))}" fill="var(--N)" opacity=".14"/>
   <line x1="${pl}" x2="${W - pr}" y1="${Y(sg.al)}" y2="${Y(sg.al)}" stroke="var(--A)" stroke-dasharray="4 3"/>${lab(Y(sg.al), 'alarm ' + nf(sg.al), '--A')}<line x1="${pl}" x2="${W - pr}" y1="${Y(sg.tr)}" y2="${Y(sg.tr)}" stroke="var(--T)" stroke-dasharray="4 3"/>${lab(Y(sg.tr), 'trip ' + nf(sg.tr), '--T')}`;
 
   // 2. Month ticks along the rolling 3-month window
@@ -171,6 +171,14 @@ export function multiple(a, j, s) {
   o += `<text x="${pl - 4}" y="${H - pb}" text-anchor="end">${nf(lo)}</text>`;
   o += `<text x="${pl}" y="${H - 4}" text-anchor="start" style="font-size:9.5px;fill:var(--mute)">${dS(tStart)}</text>`;
   o += `<text x="${xDot}" y="${H - 4}" text-anchor="end" style="font-size:10px;font-weight:600;fill:var(--brand)">${dS(tEnd)}</text>`;
+  o += `<g class="ch-overlay" style="display:none;pointer-events:none;">
+    <line class="ch-v" x1="0" x2="0" y1="${pt}" y2="${H - pb}" stroke="var(--ink)" stroke-dasharray="2 2" stroke-width="1.2" opacity="0.65"/>
+    <circle class="ch-c" cx="0" cy="0" r="4" fill="var(--brand)" stroke="var(--panel, #fff)" stroke-width="1.5"/>
+    <g class="ch-tip" transform="translate(0, 30)">
+      <rect class="ch-tip-bg" x="-45" y="-18" width="90" height="18" rx="3" fill="var(--chrome, #0B1924)" opacity="0.92"/>
+      <text class="ch-tip-txt" x="0" y="-5" text-anchor="middle" style="fill:#ffffff;font-size:10px;font-weight:600;font-family:var(--fm);"></text>
+    </g>
+  </g>`;
   o += `</svg>`;
 
   const sgm = (val) => (val > 10 ? 'over 10σ' : val.toFixed(1) + 'σ');
@@ -449,16 +457,21 @@ export function renderInvestigateView() {
 
           <!-- Cause Verification Details -->
           <div style="margin-top:16px;">
-            <small class="mu" style="font-weight:700;">HYPOTHESIS STRENGTH BY CAUSE</small>
-            <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <small class="mu" style="font-weight:700;letter-spacing:0.04em;">HYPOTHESIS STRENGTH BY CAUSE</small>
+              <small class="mu" style="font-size:11px;font-weight:600;">CONFIDENCE</small>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
               ${causes.map((x) => `
-                <div class="cs" style="padding:8px;background:var(--page);border-radius:4px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <b>${x.p.t}</b>
-                    <span class="mono" style="font-weight:700;color:var(--brand);">${x.st}%</span>
+                <div style="padding:6px 10px;background:var(--page);border:1px solid var(--line-subtle);border-radius:4px;">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+                    <span style="font-size:13px;font-weight:600;color:var(--ink);">${x.p.t}</span>
+                    <span class="mono" style="font-size:13px;font-weight:700;color:var(--brand);flex-shrink:0;">${x.st}%</span>
                   </div>
-                  <div class="bar" style="margin-top:4px;"><i style="width:${x.st}%"></i></div>
-                  <p class="sm mu" style="margin-top:4px;">${x.p.ev}</p>
+                  <div style="height:3px;background:var(--line);border-radius:1.5px;margin:4px 0;overflow:hidden;">
+                    <div style="width:${x.st}%;height:100%;background:${x.st >= 80 ? 'var(--brand)' : x.st >= 50 ? 'var(--W)' : 'var(--mute)'};border-radius:1.5px;"></div>
+                  </div>
+                  <div class="sm mu" style="font-size:11.5px;line-height:1.3;color:var(--mute);">${x.p.ev}</div>
                 </div>
               `).join('')}
             </div>

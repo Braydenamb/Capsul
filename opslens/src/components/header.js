@@ -214,7 +214,6 @@ export function initHeader() {
           </div>
 
           <button id="next-event" class="date-step-btn" title="Next event date">›</button>
-          <button id="play" class="stockbit-play-btn ${S.play ? 'playing' : ''}" title="Play or pause historical replay">${S.play ? 'Pause' : 'Play'}</button>
         </div>
 
         <!-- User / Utilities Dropdown Trigger -->

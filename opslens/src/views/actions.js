@@ -46,8 +46,15 @@ export function verifyMsg(a) {
 }
 
 export function renderActionsView() {
-  const all = items(),
-    L = S.af === 'All' ? all : all.filter((i) => i.a.tag === S.af);
+  const all = items();
+  const L = S.af === 'All' ? all : all.filter((i) => i.a.tag === S.af);
+  
+  // Extract unique owners for filter
+  const uniqueOwners = [...new Set(all.map(i => i.x.pic))].sort();
+
+  const typeFiltered = S.actType && S.actType !== 'All' ? L.filter(i => i.x.ty === S.actType) : L;
+  const filteredItems = S.actOwner && S.actOwner !== 'All' ? typeFiltered.filter(i => i.x.pic === S.actOwner) : typeFiltered;
+
   const od = (i) => i.col >= 0 && i.col < 3 && i.due < S.ms;
   const kp = [
     ['Recommended Actions', all.filter((i) => i.col === -1).length],
@@ -55,10 +62,10 @@ export function renderActionsView() {
     ['Overdue Assignments', all.filter(od).length],
     ['Awaiting Verification', all.filter((i) => i.col === 2).length]
   ];
-  const K = kpiData();
   const canCreate = canPerform('createAction');
   const canVerify = canPerform('verifyAction');
   const activeStage = S.actionStage ?? -1;
+  const currentSort = S.actSort || 'priority';
 
   return `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
@@ -78,10 +85,44 @@ export function renderActionsView() {
       `).join('')}
     </div>
 
-    <!-- Asset Filter Chips -->
-    <div class="chips" style="margin-top:16px;" role="group" aria-label="Filter by asset">
-      ${['All', ...ASSETS.map((a) => a.tag)].map((t) => `<button class="seg" data-af="${t}" aria-pressed="${S.af === t}" style="font-family:var(--fm);">${t}</button>`).join('')}
-      ${Object.keys(S.created).length ? '<button class="btn q" data-reset="1" style="margin-left:auto;">Reset Board State</button>' : ''}
+    <!-- Asset & Attribute Filter Controls -->
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;">
+      <div class="chips" role="group" aria-label="Filter by asset">
+        <span class="mu" style="font-size:12px;font-weight:600;align-self:center;margin-right:4px;">ASSET:</span>
+        ${['All', ...ASSETS.map((a) => a.tag)].map((t) => `<button class="seg" data-af="${t}" aria-pressed="${S.af === t}" style="font-family:var(--fm);">${t}</button>`).join('')}
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <small class="mu" style="font-weight:600;">TYPE:</small>
+          <select data-acttype="1" style="background:var(--page);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12.5px;">
+            <option value="All" ${(S.actType || 'All') === 'All' ? 'selected' : ''}>All Types</option>
+            <option value="Corrective" ${S.actType === 'Corrective' ? 'selected' : ''}>Corrective</option>
+            <option value="Preventive" ${S.actType === 'Preventive' ? 'selected' : ''}>Preventive</option>
+            <option value="Roll-out" ${S.actType === 'Roll-out' ? 'selected' : ''}>Roll-out</option>
+          </select>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:6px;">
+          <small class="mu" style="font-weight:600;">OWNER:</small>
+          <select data-actowner="1" style="background:var(--page);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12.5px;">
+            <option value="All" ${(S.actOwner || 'All') === 'All' ? 'selected' : ''}>All Owners</option>
+            ${uniqueOwners.map(o => `<option value="${o}" ${S.actOwner === o ? 'selected' : ''}>${o}</option>`).join('')}
+          </select>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:6px;">
+          <small class="mu" style="font-weight:600;">SORT:</small>
+          <select data-actsort="1" style="background:var(--page);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12.5px;">
+            <option value="priority" ${currentSort === 'priority' ? 'selected' : ''}>Priority / Risk</option>
+            <option value="due" ${currentSort === 'due' ? 'selected' : ''}>Due Date</option>
+            <option value="asset" ${currentSort === 'asset' ? 'selected' : ''}>Asset Tag</option>
+            <option value="type" ${currentSort === 'type' ? 'selected' : ''}>Action Type</option>
+          </select>
+        </div>
+
+        ${Object.keys(S.created).length || S.af !== 'All' || S.actType !== 'All' || S.actOwner !== 'All' ? '<button class="btn q sm" data-reset="1" style="padding:3px 8px;">Reset Filters</button>' : ''}
+      </div>
     </div>
 
     <!-- Mobile Stage Selector Tabs (<768px) -->
@@ -96,10 +137,13 @@ export function renderActionsView() {
     <!-- Kanban Governance Board -->
     <div class="bd" style="margin-top:16px;">
       ${COLS.map((c, ci) => {
-        const col = ci - 1,
-          cards = L.filter((i) => i.col === col).sort(
-            (p, q) => (q.score || 0) - (p.score || 0) || p.due - q.due
-          );
+        const col = ci - 1;
+        const cards = filteredItems.filter((i) => i.col === col).sort((p, q) => {
+          if (currentSort === 'due') return p.due - q.due;
+          if (currentSort === 'asset') return p.a.tag.localeCompare(q.a.tag);
+          if (currentSort === 'type') return p.x.ty.localeCompare(q.x.ty);
+          return (q.score || 0) - (p.score || 0) || p.due - q.due;
+        });
         const isActive = activeStage === col;
         return `
           <div class="col ${col === -1 ? 'rc' : ''} ${isActive ? 'active-stage' : ''}" style="min-height:${col === -1 ? '140px' : '80px'};">
@@ -108,46 +152,48 @@ export function renderActionsView() {
               <span class="badge badge-gray mono">${cards.length}</span>
             </h3>
             
-            ${cards.map((i) => `
-              <div class="cd ${od(i) ? 'od' : ''}" style="background:var(--panel);border:1px solid ${od(i)?'var(--T)':'var(--line)'};border-radius:6px;padding:12px;margin-top:8px;">
-                <div class="card-header">
-                  <div class="card-title">
-                    <b class="mono" style="font-size:13.5px;color:var(--brand);">${i.a.tag}</b>
-                    <div style="margin-top:3px;font-weight:600;font-size:13.5px;color:var(--ink);">${i.x.t}</div>
+            <div class="col-cards-scroll" style="max-height:520px;overflow-y:auto;padding-right:2px;">
+              ${cards.map((i) => `
+                <div class="cd ${od(i) ? 'od' : ''}" style="background:var(--panel);border:1px solid ${od(i)?'var(--T)':'var(--line)'};border-radius:6px;padding:12px;margin-top:8px;">
+                  <div class="card-header">
+                    <div class="card-title">
+                      <b class="mono" style="font-size:13.5px;color:var(--brand);">${i.a.tag}</b>
+                      <div style="margin-top:3px;font-weight:600;font-size:13.5px;color:var(--ink);">${i.x.t}</div>
+                    </div>
+                    <span class="ty ${i.x.ty}">${i.x.ty}</span>
                   </div>
-                  <span class="ty ${i.x.ty}">${i.x.ty}</span>
-                </div>
-                
-                <div class="m" style="margin-top:6px;font-size:12px;color:var(--mute);line-height:1.4;">
-                  Owner: <b>${i.x.pic}</b><br>
-                  ${col === -1 ? 'Proposed Due:' : 'Due:'} <span class="mono">${dS(i.due, true)}</span> · Source: ${i.src}
-                  ${od(i) ? '<br><span class="badge badge-red" style="margin-top:4px;"><span class="dot dot-red"></span> OVERDUE</span>' : ''}
-                </div>
-
-                <details style="margin-top:8px;font-size:12px;color:var(--mute);border-top:1px dashed var(--line-subtle);padding-top:6px;">
-                  <summary style="cursor:pointer;color:var(--brand);font-weight:500;">Action Details & Risk</summary>
-                  <div style="margin-top:4px;line-height:1.4;">
-                    <b>Risk:</b> ${i.x.risk}<br>
-                    <b>Countermeasure:</b> ${i.x.ctr}
+                  
+                  <div class="m" style="margin-top:6px;font-size:12px;color:var(--mute);line-height:1.4;">
+                    Owner: <b>${i.x.pic}</b><br>
+                    ${col === -1 ? 'Proposed Due:' : 'Due:'} <span class="mono">${dS(i.due, true)}</span> · Source: ${i.src}
+                    ${od(i) ? '<br><span class="badge badge-red" style="margin-top:4px;"><span class="dot dot-red"></span> OVERDUE</span>' : ''}
                   </div>
-                </details>
 
-                <div class="bx" style="margin-top:10px;">
-                  ${col === -1 ? `
-                    <button class="btn pr" data-mk="${i.key}" ${canCreate ? '' : 'disabled title="Role cannot create actions"'}>Create Action</button>
-                    <button class="btn q" data-dis="${i.key}">Dismiss</button>
-                  ` : col === 0 ? `
-                    <button class="btn" data-mv="${i.key}">Start Work</button>
-                  ` : col === 1 ? `
-                    <button class="btn" data-mv="${i.key}">Send to Verification</button>
-                  ` : col === 2 ? `
-                    <button class="btn pr" data-mv="${i.key}" ${canVerify ? '' : 'disabled title="Verification requires Reliability or Admin role"'}>Verify & Close</button>
-                  ` : `
-                    <span class="badge badge-green"><span class="dot dot-green"></span> Completed</span>
-                  `}
+                  <details style="margin-top:8px;font-size:12px;color:var(--mute);border-top:1px dashed var(--line-subtle);padding-top:6px;">
+                    <summary style="cursor:pointer;color:var(--brand);font-weight:500;">Action Details & Risk</summary>
+                    <div style="margin-top:4px;line-height:1.4;">
+                      <b>Risk:</b> ${i.x.risk}<br>
+                      <b>Countermeasure:</b> ${i.x.ctr}
+                    </div>
+                  </details>
+
+                  <div class="bx" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                    ${col === -1 ? `
+                      <button class="btn pr" data-mk="${i.key}" ${canCreate ? '' : 'disabled title="Role cannot create actions"'}>Create Action</button>
+                      <button class="btn q" data-dis="${i.key}">Dismiss</button>
+                    ` : col === 0 ? `
+                      <button class="btn" data-mv="${i.key}">Start Work</button>
+                    ` : col === 1 ? `
+                      <button class="btn" data-mv="${i.key}">Send to Verification</button>
+                    ` : col === 2 ? `
+                      <button class="btn pr" data-mv="${i.key}" ${canVerify ? '' : 'disabled title="Verification requires Reliability or Admin role"'}>Verify & Close</button>
+                    ` : `
+                      <span class="badge badge-green"><span class="dot dot-green"></span> Completed</span>
+                    `}
+                  </div>
                 </div>
-              </div>
-            `).join('') || `<div class="empty" style="font-size:12.5px;padding:10px;text-align:center;">${col === -1 ? 'No recommendations' : 'Empty stage'}</div>`}
+              `).join('') || `<div class="empty" style="font-size:12.5px;padding:10px;text-align:center;">${col === -1 ? 'No recommendations' : 'Empty stage'}</div>`}
+            </div>
           </div>
         `;
       }).join('')}

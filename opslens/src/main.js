@@ -93,6 +93,9 @@ window.addEventListener('popstate', () => {
     render();
   }
 });
+window.addEventListener('replay-change', () => {
+  render();
+});
 
 let pend = false;
 export const sched = () => {
@@ -301,11 +304,114 @@ document.addEventListener('input', (e) => {
 });
 
 document.addEventListener('change', (e) => {
-  if (e.target.id === 'jump' && e.target.value) {
-    setDate(+e.target.value);
-    e.target.value = '';
+  const t = e.target;
+  if (t.id === 'jump' && t.value) {
+    setDate(+t.value);
+    t.value = '';
+  } else if (t.dataset.acttype) {
+    S.actType = t.value;
+    render();
+  } else if (t.dataset.actowner) {
+    S.actOwner = t.value;
+    render();
+  } else if (t.dataset.actsort) {
+    S.actSort = t.value;
+    render();
   }
 });
+
+// Synchronized Telemetry Charts Crosshair & Tooltip inspection
+document.addEventListener('pointermove', (e) => {
+  const mg = e.target.closest('.mg');
+  if (!mg) {
+    document.querySelectorAll('.ch-overlay').forEach(el => el.style.display = 'none');
+    return;
+  }
+  const svg = e.target.closest('svg.telemetry-svg');
+  if (!svg) {
+    document.querySelectorAll('.ch-overlay').forEach(el => el.style.display = 'none');
+    return;
+  }
+  const rect = svg.getBoundingClientRect();
+  const pl = 40, pr = 10, W = 330, H = 130, pt = 14, pb = 20;
+  const xMouse = e.clientX - rect.left;
+  const scaleX = W / rect.width;
+  const xSvg = xMouse * scaleX;
+  const xDot = W - pr;
+
+  if (xSvg < pl || xSvg > xDot) {
+    document.querySelectorAll('.ch-overlay').forEach(el => el.style.display = 'none');
+    return;
+  }
+
+  const frac = (xSvg - pl) / (xDot - pl);
+  const panels = mg.querySelectorAll('.mc');
+
+  panels.forEach((panel) => {
+    const pSvg = panel.querySelector('svg.telemetry-svg');
+    const overlay = panel.querySelector('.ch-overlay');
+    if (!pSvg || !overlay) return;
+
+    try {
+      const vData = JSON.parse(pSvg.dataset.v || '[]');
+      const tData = JSON.parse(pSvg.dataset.t || '[]');
+      const lo = +pSvg.dataset.lo;
+      const hi = +pSvg.dataset.hi;
+      const unit = pSvg.dataset.u || '';
+
+      const tStart = +pSvg.dataset.tstart;
+      const tEnd = +pSvg.dataset.tend;
+      const tHover = tStart + frac * (tEnd - tStart);
+
+      let val = vData[vData.length - 1];
+      if (tData.length > 0) {
+        let k = 0;
+        while (k < tData.length - 1 && tData[k + 1] <= tHover) k++;
+        if (k < tData.length - 1) {
+          const t0 = tData[k], t1 = tData[k + 1];
+          const f = t1 > t0 ? (tHover - t0) / (t1 - t0) : 0;
+          val = vData[k] + f * (vData[k + 1] - vData[k]);
+        } else {
+          val = vData[k] ?? val;
+        }
+      }
+
+      const xPos = pl + frac * (xDot - pl);
+      const yPos = pt + ((hi - val) / (hi - lo || 1)) * (H - pt - pb);
+
+      const line = overlay.querySelector('.ch-v');
+      const circle = overlay.querySelector('.ch-c');
+      const tipG = overlay.querySelector('.ch-tip');
+      const tipTxt = overlay.querySelector('.ch-tip-txt');
+
+      if (line) {
+        line.setAttribute('x1', xPos.toFixed(1));
+        line.setAttribute('x2', xPos.toFixed(1));
+      }
+      if (circle) {
+        circle.setAttribute('cx', xPos.toFixed(1));
+        circle.setAttribute('cy', yPos.toFixed(1));
+      }
+      if (tipG) {
+        const tipX = Math.max(pl + 45, Math.min(xDot - 45, xPos));
+        tipG.setAttribute('transform', `translate(${tipX.toFixed(1)}, 30)`);
+      }
+      if (tipTxt) {
+        const d = new Date(tHover);
+        const dStr = `${d.getUTCDate()} ${MON[d.getUTCMonth()]}`;
+        tipTxt.textContent = `${dStr}: ${nf(val)} ${unit}`;
+      }
+
+      overlay.style.display = 'block';
+    } catch(err) {}
+  });
+});
+
+document.addEventListener('pointerleave', (e) => {
+  if (e.target && e.target.closest && e.target.closest('.mg')) {
+    document.querySelectorAll('.ch-overlay').forEach(el => el.style.display = 'none');
+  }
+}, true);
 
 // Timeline dragging listeners
 const ribSet = (e) => {
