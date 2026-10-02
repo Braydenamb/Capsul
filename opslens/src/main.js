@@ -173,12 +173,15 @@ document.addEventListener('click', (e) => {
   }
 
   const d = t.closest(
-    '[data-tab],[data-open],[data-lens],[data-filt],[data-clr],[data-mode],[data-ev],[data-inc],[data-mk],[data-mv],[data-dis],[data-res],[data-af],[data-reset],[data-ack],[data-fb]'
+    '[data-tab],[data-open],[data-lens],[data-filt],[data-clr],[data-mode],[data-ev],[data-inc],[data-mk],[data-mv],[data-dis],[data-res],[data-af],[data-reset],[data-ack],[data-fb],[data-stage]'
   );
   if (!d) return;
   const q = d.dataset;
 
-  if (q.tab) go(q.tab);
+  if (q.stage !== undefined) {
+    S.actionStage = +q.stage;
+    render();
+  } else if (q.tab) go(q.tab);
   else if (q.open) {
     S.sel = q.open;
     S.ev = null;

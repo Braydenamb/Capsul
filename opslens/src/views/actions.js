@@ -58,26 +58,22 @@ export function renderActionsView() {
   const K = kpiData();
   const canCreate = canPerform('createAction');
   const canVerify = canPerform('verifyAction');
+  const activeStage = S.actionStage ?? -1;
 
   return `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
       <div>
-        <h1 style="font-size:24px;font-weight:700;letter-spacing:-0.02em;">Action Governance & Tracking</h1>
+        <h1 style="font-size:22px;font-weight:700;letter-spacing:-0.02em;">Action Governance & Tracking</h1>
         <p class="mu" style="margin-top:2px;">Accountable assignment board: Corrective, Preventive & Pro-active operational actions</p>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span class="badge badge-blue">
-          <span class="dot dot-blue"></span> Historical Context: ${dS(S.ms, true)}
-        </span>
       </div>
     </div>
 
-    <!-- Summary KPI Cards -->
-    <div class="kp" style="grid-template-columns:repeat(4,1fr);margin-top:0;">
+    <!-- Visually Quieter Summary KPI Cards -->
+    <div class="kp" style="grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));margin-top:0;border:1px solid var(--line);border-radius:8px;background:var(--panel);">
       ${kp.map((k, idx) => `
-        <div style="${idx < 3 ? 'border-right:1px solid var(--line);' : ''}">
-          <small class="mu" style="font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">${k[0]}</small>
-          <b style="font-size:24px;font-family:var(--fm);color:${idx===2 && k[1]>0 ? 'var(--T)' : 'var(--ink)'}">${k[1]}</b>
+        <div style="padding:12px 14px;${idx < kp.length - 1 ? 'border-right:1px solid var(--line);' : ''}">
+          <small class="mu" style="font-weight:600;text-transform:uppercase;letter-spacing:0.04em;font-size:11px;">${k[0]}</small>
+          <b style="font-size:24px;font-family:var(--fm);color:${idx===2 && k[1]>0 ? 'var(--T)' : 'var(--ink)'};margin-top:2px;">${k[1]}</b>
         </div>
       `).join('')}
     </div>
@@ -88,6 +84,15 @@ export function renderActionsView() {
       ${Object.keys(S.created).length ? '<button class="btn q" data-reset="1" style="margin-left:auto;">Reset Board State</button>' : ''}
     </div>
 
+    <!-- Mobile Stage Selector Tabs (<768px) -->
+    <div class="action-stage-tabs" role="tablist" aria-label="Kanban Stage Selector">
+      ${COLS.map((c, ci) => `
+        <button class="stage-tab ${activeStage === ci - 1 ? 'active' : ''}" data-stage="${ci - 1}">
+          ${c}
+        </button>
+      `).join('')}
+    </div>
+
     <!-- Kanban Governance Board -->
     <div class="bd" style="margin-top:16px;">
       ${COLS.map((c, ci) => {
@@ -95,30 +100,30 @@ export function renderActionsView() {
           cards = L.filter((i) => i.col === col).sort(
             (p, q) => (q.score || 0) - (p.score || 0) || p.due - q.due
           );
+        const isActive = activeStage === col;
         return `
-          <div class="col ${col === -1 ? 'rc' : ''}">
-            <h3 style="font-size:14px;font-weight:700;border-bottom:2px solid var(--line);padding-bottom:6px;">
-              ${c}
+          <div class="col ${col === -1 ? 'rc' : ''} ${isActive ? 'active-stage' : ''}" style="min-height:${col === -1 ? '140px' : '80px'};">
+            <h3 style="font-size:13.5px;font-weight:700;border-bottom:2px solid var(--line);padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
+              <span>${c}</span>
               <span class="badge badge-gray mono">${cards.length}</span>
             </h3>
             
             ${cards.map((i) => `
-              <div class="cd ${od(i) ? 'od' : ''}" style="background:var(--panel);border:1px solid ${od(i)?'var(--T)':'var(--line)'};border-radius:6px;padding:10px;margin-top:8px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <b class="mono" style="font-size:14px;color:var(--brand);">${i.a.tag}</b>
+              <div class="cd ${od(i) ? 'od' : ''}" style="background:var(--panel);border:1px solid ${od(i)?'var(--T)':'var(--line)'};border-radius:6px;padding:12px;margin-top:8px;">
+                <div class="card-header">
+                  <div class="card-title">
+                    <b class="mono" style="font-size:13.5px;color:var(--brand);">${i.a.tag}</b>
+                    <div style="margin-top:3px;font-weight:600;font-size:13.5px;color:var(--ink);">${i.x.t}</div>
+                  </div>
                   <span class="ty ${i.x.ty}">${i.x.ty}</span>
                 </div>
                 
-                <div style="margin-top:6px;font-weight:600;font-size:13.5px;color:var(--ink);">${i.x.t}</div>
-                
-                <div class="m" style="margin-top:6px;font-size:12px;color:var(--mute);">
+                <div class="m" style="margin-top:6px;font-size:12px;color:var(--mute);line-height:1.4;">
                   Owner: <b>${i.x.pic}</b><br>
-                  ${col === -1 ? 'Proposed Due:' : 'Due:'} <span class="mono">${dS(i.due, true)}</span><br>
-                  Source: ${i.src}
+                  ${col === -1 ? 'Proposed Due:' : 'Due:'} <span class="mono">${dS(i.due, true)}</span> · Source: ${i.src}
                   ${od(i) ? '<br><span class="badge badge-red" style="margin-top:4px;"><span class="dot dot-red"></span> OVERDUE</span>' : ''}
                 </div>
 
-                <!-- Progressive Disclosure Guidance -->
                 <details style="margin-top:8px;font-size:12px;color:var(--mute);border-top:1px dashed var(--line-subtle);padding-top:6px;">
                   <summary style="cursor:pointer;color:var(--brand);font-weight:500;">Action Details & Risk</summary>
                   <div style="margin-top:4px;line-height:1.4;">
@@ -142,7 +147,7 @@ export function renderActionsView() {
                   `}
                 </div>
               </div>
-            `).join('') || `<div class="empty" style="font-size:13px;padding:12px;text-align:center;">${col === -1 ? 'No active recommendations' : 'No items'}</div>`}
+            `).join('') || `<div class="empty" style="font-size:12.5px;padding:10px;text-align:center;">${col === -1 ? 'No recommendations' : 'Empty stage'}</div>`}
           </div>
         `;
       }).join('')}
