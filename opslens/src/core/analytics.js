@@ -410,23 +410,43 @@ export function impRes() {
 <div><div class="big">${Math.round((incList.length / spanYears) * S.I.hrs).toLocaleString('en-US')} h</div><div class="sm">Data-validation time saved per year</div><p class="note">${Math.round(incList.length / spanYears)} incidents per year × ${S.I.hrs} h across functions</p></div></div>`;
 }
 
-export function scorecard() {
-  const cut = D0('2026-07-25'),
-    all = ASSETS.flatMap((a) => a.c.acts),
-    cl = all.filter((x) => x.stt === 'Closed').length,
-    od = all.filter((x) => x.stt !== 'Closed' && D0(x.due) < cut).length,
-    noAR = INC.filter((i) => OPEN.includes(i.status) && !i.ar).length;
+export function scorecard(ms = S.ms) {
+  const cut = ms || S.ms,
+    dateStr = dS(cut, true);
+
+  const availableActs = ASSETS.flatMap((a) => {
+    return a.c.acts.filter((x, n) => {
+      const key = a.tag + '|' + n;
+      const cr = S.created[key];
+      if (cr && cr.ms <= cut) return true;
+      if (cut >= a.failMs + DAY) return true;
+      return false;
+    });
+  });
+
+  const cl = availableActs.filter((x) => x.stt === 'Closed').length;
+  const od = availableActs.filter((x) => x.stt !== 'Closed' && D0(x.due) < cut).length;
+
+  const pastInc = INC.filter((i) => i.ms <= cut);
+  const openInc = pastInc.filter((i) => OPEN.includes(i.status));
+  const noAR = openInc.filter((i) => !i.ar).length;
+
+  const alarmedAssets = ASSETS.filter((a) => a.al >= 0 && cut >= a.t[a.al]);
+  const avgLead = alarmedAssets.length > 0
+    ? (avg(alarmedAssets.map((a) => a.lead)).toFixed(1) + ' wk average across ' + alarmedAssets.length + ' case' + (alarmedAssets.length > 1 ? 's' : ''))
+    : '0.0 wk average';
+
   const R = [
     [
       'Actions recorded as closed (not verified by KPI)',
-      cl + ' of ' + all.length + ' in the register',
+      cl + ' of ' + availableActs.length + ' in the register as of ' + dateStr,
       '80% or more, on time'
     ],
-    ['Open and past due at the data cut-off (25 Jul 2026)', od + ' actions', '0'],
-    ['Open incidents with no AR number', noAR + ' incidents', '0'],
+    ['Open and past due at the selected date (' + dateStr + ')', od + ' action' + (od === 1 ? '' : 's'), '0'],
+    ['Open incidents with no AR number', noAR + ' incident' + (noAR === 1 ? '' : 's'), '0'],
     [
       'Lead time ahead of the DCS alarm',
-      avg(ASSETS.map((a) => a.lead)).toFixed(1) + ' wk average across 5 cases',
+      avgLead,
       '2 wk or more'
     ],
     [
@@ -435,5 +455,5 @@ export function scorecard() {
       '1 day or less for Tier 1'
     ]
   ];
-  return `<section class="pn"><div class="pn-h"><h2>Closed-loop scorecard</h2><span class="sm mu">Does the loop actually close? Baseline is measured, targets are proposed</span></div><div class="tb"><table style="table-layout:fixed;width:100%;"><colgroup><col style="width:45%;"><col style="width:30%;"><col style="width:25%;"></colgroup><tr><th>Loop KPI</th><th>Baseline from the data</th><th>Target with Capsul</th></tr>${R.map((r) => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td></tr>`).join('')}</table></div></section>`;
+  return `<section class="pn"><div class="pn-h"><h2>Closed-loop scorecard</h2><span class="sm mu">Does the loop actually close? Measured up to ${dateStr}</span></div><div class="tb"><table style="table-layout:fixed;width:100%;"><colgroup><col style="width:45%;"><col style="width:30%;"><col style="width:25%;"></colgroup><tr><th>Loop KPI</th><th>Baseline from the data</th><th>Target with Capsul</th></tr>${R.map((r) => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td></tr>`).join('')}</table></div></section>`;
 }

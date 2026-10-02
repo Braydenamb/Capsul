@@ -10,7 +10,7 @@ export function renderImpactView() {
   const td = sum(pastInc.map((i) => i.dt));
   const pool = pastInc.filter((i) => ADDR.includes(i.mf));
   const pl = sum(pool.map((i) => i.loss));
-  const g = groupBy(pastInc.length > 0 ? pastInc : INC, (i) => i.mf);
+  const g = groupBy(pastInc, (i) => i.mf);
   const mx = (g[0] && g[0].loss) || 1;
 
   const realizedAssets = ASSETS.map((a) => {
@@ -109,36 +109,23 @@ export function renderImpactView() {
       <p class="note" style="margin-top:10px;">The flag rule raised no flag in ${HEALTHY.n} healthy weeks (${HEALTHY.fp} false flags). On BL-5702 the DCS alarmed first, so the value there is the named cause and the action, not lead time.</p>
     </section>
 
-    ${scorecard()}
+    ${scorecard(S.ms)}
 
-    <div class="g2" style="margin-top:16px;">
-      <section class="pn">
-        <div class="pn-h">
-          <h3>Loss by Failure Mechanism</h3>
-          <span class="sm mu">Incidents prior to ${curDateStr}</span>
-        </div>
-        <div style="margin-top:10px;">
-          ${g.map((x) => `
-            <div class="bl ${ADDR.includes(x.k) ? '' : 'dim'}" style="grid-template-columns:130px 1fr 100px;margin-top:4px;">
-              <span class="n" style="font-weight:500">${MFN[x.k]}</span>
-              <span class="b" style="width:${(x.loss / mx) * 100}%"></span>
-              <span class="v num">${fmtK(x.loss)}</span>
-            </div>
-          `).join('')}
-        </div>
-        <p class="note" style="margin-top:10px;">Dark bars are addressable by early warning condition monitoring.</p>
-      </section>
-
-      <section class="pn">
-        <div class="pn-h">
-          <h3>Beyond Financial Loss</h3>
-        </div>
-        <div style="margin-top:10px;">
-          <p class="sm"><b>Faster decisions.</b> Teams stop reconciling reports first. The data-quality panel already surfaces ${dq().length} governed conflicts a team would otherwise find in a meeting.</p>
-          <p class="sm" style="margin-top:8px"><b>Safer follow-through.</b> ${pastInc.filter((i) => OPEN.includes(i.status)).length} incidents are open as of ${curDateStr}, ${pastInc.filter((i) => OPEN.includes(i.status) && !i.ar).length} of them without an AR number. One board with owners and verified closure removes that blind spot.</p>
-          <p class="sm" style="margin-top:8px"><b>Knowledge kept.</b> Every RCA becomes searchable, so a new engineer sees what the last one learned.</p>
-        </div>
-      </section>
-    </div>
+    <section class="pn" style="margin-top:16px;">
+      <div class="pn-h">
+        <h3>Loss by Failure Mechanism</h3>
+        <span class="sm mu">Incidents prior to ${curDateStr} (${pastInc.length} incident${pastInc.length === 1 ? '' : 's'})</span>
+      </div>
+      <div style="margin-top:10px;">
+        ${g.length > 0 ? g.map((x) => `
+          <div class="bl ${ADDR.includes(x.k) ? '' : 'dim'}" style="grid-template-columns:140px 1fr 100px;margin-top:4px;">
+            <span class="n" style="font-weight:500">${MFN[x.k]}</span>
+            <span class="b" style="width:${(x.loss / mx) * 100}%"></span>
+            <span class="v num">${fmtK(x.loss)}</span>
+          </div>
+        `).join('') : '<div class="empty" style="font-size:12.5px;padding:12px;text-align:center;">No incidents recorded prior to this date.</div>'}
+      </div>
+      <p class="note" style="margin-top:10px;">Dark bars are addressable by early warning condition monitoring.</p>
+    </section>
   `;
 }
