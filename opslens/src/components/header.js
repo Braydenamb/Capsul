@@ -1,5 +1,6 @@
 import { ASSETS, T0, NDAYS } from '../core/analytics.js';
-import { DAY, DOW, dS } from '../core/formatting.js';
+import { DAY, DOW, dS, fmtK } from '../core/formatting.js';
+import { INC } from '../core/incidents.js';
 import { state as S } from '../core/state.js';
 import { getCurrentUser, logout, canAccessView } from '../auth/auth.js';
 
@@ -11,6 +12,31 @@ ASSETS.forEach((a) => {
 });
 EVENTS.sort((p, q) => p[0] - q[0]);
 
+export function getEventMap() {
+  const map = {};
+  ASSETS.forEach((a) => {
+    if (a.fl >= 0) {
+      const d = dS(a.t[a.fl], true);
+      (map[d] = map[d] || []).push({ type: 'warning', asset: a.tag, text: `${a.tag}: Capsul flag (${a.ns[a.fl]} signals >3σ)` });
+    }
+    if (a.al >= 0) {
+      const d = dS(a.t[a.al], true);
+      (map[d] = map[d] || []).push({ type: 'alarm', asset: a.tag, text: `${a.tag}: DCS alarm fired` });
+    }
+    if (a.failMs) {
+      const d = dS(a.failMs, true);
+      (map[d] = map[d] || []).push({ type: 'trip', asset: a.tag, text: `${a.tag}: Trip & outage (${a.r.dt} h, ${fmtK(a.r.loss)})` });
+    }
+  });
+
+  INC.forEach((i) => {
+    const d = dS(i.ms, true);
+    (map[d] = map[d] || []).push({ type: 'incident', asset: i.tag, text: `${i.tag}: ${i.title.replace(/^.*?— /, '')}` });
+  });
+
+  return map;
+}
+
 export const TABS = {
   cmd: 'Command',
   inv: 'Investigate',
@@ -19,18 +45,25 @@ export const TABS = {
   imp: 'Impact'
 };
 
-let replayOpen = false;
+let calOpen = false;
 let userMenuOpen = false;
+let calYear = new Date(S.ms).getUTCFullYear();
+let calMonth = new Date(S.ms).getUTCMonth();
 
-export function toggleReplayPopover(force) {
-  replayOpen = typeof force === 'boolean' ? force : !replayOpen;
-  const popover = document.querySelector('#replay-popover');
-  const btn = document.querySelector('#replay-toggle');
+export function toggleCalendarPopover(force) {
+  calOpen = typeof force === 'boolean' ? force : !calOpen;
+  const popover = document.querySelector('#calendar-popover');
+  const btn = document.querySelector('#date-picker-toggle');
   if (popover) {
-    popover.classList.toggle('open', replayOpen);
+    popover.classList.toggle('open', calOpen);
+    if (calOpen) {
+      calYear = new Date(S.ms).getUTCFullYear();
+      calMonth = new Date(S.ms).getUTCMonth();
+      renderCalendarGrid();
+    }
   }
   if (btn) {
-    btn.setAttribute('aria-expanded', String(replayOpen));
+    btn.setAttribute('aria-expanded', String(calOpen));
   }
 }
 
@@ -44,6 +77,82 @@ export function toggleUserMenu(force) {
   if (btn) {
     btn.setAttribute('aria-expanded', String(userMenuOpen));
   }
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function renderCalendarGrid() {
+  const gridEl = document.querySelector('#cal-days-grid');
+  const titleEl = document.querySelector('#cal-month-year');
+  if (!gridEl || !titleEl) return;
+
+  titleEl.textContent = `${MONTH_NAMES[calMonth]} ${calYear}`;
+
+  const eventMap = getEventMap();
+  const firstDay = new Date(Date.UTC(calYear, calMonth, 1));
+  const startingDayOfWeek = (firstDay.getUTCDay() + 6) % 7; // Monday = 0
+  const daysInMonth = new Date(Date.UTC(calYear, calMonth + 1, 0)).getUTCDate();
+  const activeDateStr = dS(S.ms, true);
+
+  let html = '';
+
+  // Padding days from previous month
+  const prevMonthDays = new Date(Date.UTC(calYear, calMonth, 0)).getUTCDate();
+  for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+    const dayNum = prevMonthDays - i;
+    html += `<div class="cal-day-cell other-month"><span>${dayNum}</span></div>`;
+  }
+
+  // Days of active month
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dayMs = Date.UTC(calYear, calMonth, day);
+    const dayStr = dS(dayMs, true);
+    const isSelected = dayStr === activeDateStr;
+    const events = eventMap[dayStr] || [];
+
+    let dotsHtml = '';
+    if (events.length > 0) {
+      const types = [...new Set(events.map((e) => e.type))];
+      dotsHtml = `<div class="cal-dots-row">${types
+        .map((t) => `<i class="cal-dot ${t === 'trip' ? 'dot-red' : t === 'warning' ? 'dot-amber' : 'dot-blue'}"></i>`)
+        .join('')}</div>`;
+    }
+
+    html += `
+      <button class="cal-day-cell" data-dms="${dayMs}" data-daystr="${dayStr}" aria-selected="${isSelected}" title="${events.length ? events.map(e => e.text).join(' | ') : dayStr}">
+        <span>${day}</span>
+        ${dotsHtml}
+      </button>
+    `;
+  }
+
+  gridEl.innerHTML = html;
+
+  // Attach cell click and hover listeners
+  gridEl.querySelectorAll('.cal-day-cell[data-dms]').forEach((cell) => {
+    cell.onclick = (e) => {
+      e.stopPropagation();
+      const ms = +cell.dataset.dms;
+      if (!isNaN(ms)) {
+        S.ms = ms;
+        window.dispatchEvent(new CustomEvent('replay-change'));
+        toggleCalendarPopover(false);
+      }
+    };
+
+    cell.onmouseenter = () => {
+      const dayStr = cell.dataset.daystr;
+      const events = eventMap[dayStr] || [];
+      const previewEl = document.querySelector('#cal-preview-box');
+      if (previewEl) {
+        if (events.length > 0) {
+          previewEl.innerHTML = `<b>${dayStr}</b> · ${events[0].text}`;
+        } else {
+          previewEl.innerHTML = `<span class="cal-preview-placeholder">${dayStr} · No historical events</span>`;
+        }
+      }
+    };
+  });
 }
 
 export function initHeader() {
@@ -65,18 +174,52 @@ export function initHeader() {
       <nav id="tabs" class="header-nav" aria-label="Views"></nav>
       
       <div class="header-controls">
-        <!-- Historical Replay Popover Trigger -->
-        <button id="replay-toggle" class="header-pill replay-btn" aria-haspopup="true" aria-expanded="false" aria-label="Toggle historical replay controls">
-          <span class="replay-icon" style="display:inline-flex;align-items:center;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          </span>
-          <span class="replay-date" id="dBig" style="font-family:var(--fm);font-weight:600;">${dS(S.ms, true)}</span>
-          <span class="replay-badge">Replay ▾</span>
-        </button>
+        <!-- Stockbit-Style Compact Event-Aware Historical Control -->
+        <div class="stockbit-date-control" aria-label="Historical Date Navigation">
+          <button id="prev-event" class="date-step-btn" title="Previous event date">‹</button>
+          
+          <div class="cal-picker-wrapper">
+            <button id="date-picker-toggle" class="date-picker-pill" aria-haspopup="dialog" aria-expanded="false" title="Click to open calendar">
+              <span class="cal-pill-icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </span>
+              <span id="dBig" class="cal-pill-date">${dS(S.ms, true)}</span>
+              <span class="cal-pill-chevron">▾</span>
+            </button>
+
+            <!-- Data-Aware Calendar Popover -->
+            <div id="calendar-popover" class="calendar-popover-panel" role="dialog" aria-label="Historical Event Calendar">
+              <div class="cal-popover-hdr">
+                <button id="cal-prev-month" class="cal-nav-btn" aria-label="Previous month">‹</button>
+                <span id="cal-month-year" class="cal-title-txt"></span>
+                <button id="cal-next-month" class="cal-nav-btn" aria-label="Next month">›</button>
+              </div>
+
+              <div class="cal-weekdays-row">
+                <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+              </div>
+
+              <div id="cal-days-grid" class="cal-days-grid"></div>
+
+              <div class="cal-legend-bar">
+                <span><i class="dot dot-red"></i>Trip</span>
+                <span><i class="dot dot-amber"></i>Warning</span>
+                <span><i class="dot dot-blue"></i>Alarm/RCA</span>
+              </div>
+
+              <div id="cal-preview-box" class="cal-preview-box">
+                <span class="cal-preview-placeholder">Hover or tap a date for event details</span>
+              </div>
+            </div>
+          </div>
+
+          <button id="next-event" class="date-step-btn" title="Next event date">›</button>
+          <button id="play" class="stockbit-play-btn ${S.play ? 'playing' : ''}" title="Play or pause historical replay">${S.play ? 'Pause' : 'Play'}</button>
+        </div>
 
         <!-- User / Utilities Dropdown Trigger -->
         <div class="user-menu-wrapper">
-          <button id="user-menu-toggle" class="header-pill user-btn" aria-haspopup="true" aria-expanded="false" aria-label="User account and options menu">
+          <button id="user-menu-toggle" class="header-pill user-btn" aria-haspopup="true" aria-expanded="false" aria-label="User account menu">
             <span class="user-avatar">${user.name.charAt(0)}</span>
             <span class="user-name">${user.name}</span>
             <span class="user-role-tag">${user.role}</span>
@@ -113,36 +256,14 @@ export function initHeader() {
         </div>
       </div>
     </div>
-
-    <!-- Collapsible Contextual Replay Control Bar -->
-    <div id="replay-popover" class="replay-popover-panel" aria-label="Historical replay controls">
-      <div class="replay-panel-inner">
-        <div class="replay-info">
-          <span class="clock-label">HISTORICAL VIEW</span>
-          <small id="dSub" style="font-family:var(--fm);">${DOW[new Date(S.ms).getUTCDay()]} · simulated replay date</small>
-        </div>
-        <div class="replay-slider-wrapper">
-          <input id="day" type="range" min="0" max="${NDAYS}" value="${Math.round((S.ms - T0) / DAY)}" aria-label="Replay date slider">
-        </div>
-        <div class="replay-actions">
-          <button class="bt" id="prev-event" aria-label="Previous key event" title="Previous event">◄ Prev</button>
-          <button class="bt pr" id="play" aria-label="Play or pause historical replay">${S.play ? 'Pause' : 'Play'}</button>
-          <button class="bt" id="next-event" aria-label="Next key event" title="Next event">Next ►</button>
-          <select id="jump" aria-label="Jump to a key moment">
-            <option value="">Jump to key moment...</option>
-            ${EVENTS.map((e) => `<option value="${e[0]}">${dS(e[0], true)} – ${e[1]}</option>`).join('')}
-          </select>
-          <button id="replay-close" class="bt q" aria-label="Close replay controls">✕</button>
-        </div>
-      </div>
-    </div>
   `;
 
   // Attach event stepper listeners
   const prevBtn = document.querySelector('#prev-event');
   if (prevBtn) {
-    prevBtn.onclick = () => {
-      const past = EVENTS.filter(e => e[0] < S.ms);
+    prevBtn.onclick = (e) => {
+      e.stopPropagation();
+      const past = EVENTS.filter((evt) => evt[0] < S.ms);
       if (past.length > 0) {
         S.ms = past[past.length - 1][0];
         window.dispatchEvent(new CustomEvent('replay-change'));
@@ -152,8 +273,9 @@ export function initHeader() {
 
   const nextBtn = document.querySelector('#next-event');
   if (nextBtn) {
-    nextBtn.onclick = () => {
-      const upcoming = EVENTS.filter(e => e[0] > S.ms);
+    nextBtn.onclick = (e) => {
+      e.stopPropagation();
+      const upcoming = EVENTS.filter((evt) => evt[0] > S.ms);
       if (upcoming.length > 0) {
         S.ms = upcoming[0][0];
         window.dispatchEvent(new CustomEvent('replay-change'));
@@ -161,26 +283,48 @@ export function initHeader() {
     };
   }
 
-  // Attach toggle listeners
-  const replayBtn = document.querySelector('#replay-toggle');
-  if (replayBtn) {
-    replayBtn.onclick = (e) => {
+  // Attach calendar toggle listener
+  const dateToggleBtn = document.querySelector('#date-picker-toggle');
+  if (dateToggleBtn) {
+    dateToggleBtn.onclick = (e) => {
       e.stopPropagation();
       toggleUserMenu(false);
-      toggleReplayPopover();
+      toggleCalendarPopover();
     };
   }
 
-  const replayCloseBtn = document.querySelector('#replay-close');
-  if (replayCloseBtn) {
-    replayCloseBtn.onclick = () => toggleReplayPopover(false);
+  // Calendar month navigation
+  const prevMonthBtn = document.querySelector('#cal-prev-month');
+  if (prevMonthBtn) {
+    prevMonthBtn.onclick = (e) => {
+      e.stopPropagation();
+      calMonth--;
+      if (calMonth < 0) {
+        calMonth = 11;
+        calYear--;
+      }
+      renderCalendarGrid();
+    };
+  }
+
+  const nextMonthBtn = document.querySelector('#cal-next-month');
+  if (nextMonthBtn) {
+    nextMonthBtn.onclick = (e) => {
+      e.stopPropagation();
+      calMonth++;
+      if (calMonth > 11) {
+        calMonth = 0;
+        calYear++;
+      }
+      renderCalendarGrid();
+    };
   }
 
   const userBtn = document.querySelector('#user-menu-toggle');
   if (userBtn) {
     userBtn.onclick = (e) => {
       e.stopPropagation();
-      toggleReplayPopover(false);
+      toggleCalendarPopover(false);
       toggleUserMenu();
     };
   }
@@ -196,7 +340,7 @@ export function initHeader() {
   // Close menus on click outside
   document.addEventListener('click', (e) => {
     if (!e.target.closest('#header')) {
-      toggleReplayPopover(false);
+      toggleCalendarPopover(false);
       toggleUserMenu(false);
     }
   });
@@ -212,18 +356,9 @@ export function head() {
   if (headerEl) headerEl.style.display = '';
 
   const dBig = document.querySelector('#dBig');
-  const dSub = document.querySelector('#dSub');
-  const day = document.querySelector('#day');
   const tabs = document.querySelector('#tabs');
 
   if (dBig) dBig.textContent = dS(S.ms, true);
-  if (dSub) dSub.textContent = DOW[new Date(S.ms).getUTCDay()] + ' · historical replay, not live data';
-
-  if (day) {
-    day.max = NDAYS;
-    day.value = Math.round((S.ms - T0) / DAY);
-    day.setAttribute('aria-valuetext', dS(S.ms, true));
-  }
 
   if (tabs) {
     tabs.innerHTML = Object.keys(TABS)

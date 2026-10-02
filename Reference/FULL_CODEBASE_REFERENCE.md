@@ -28,258 +28,367 @@ This document provides a single-file consolidated source code listing of the ent
 
 ---
 
-## 1. index.html
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Capsul — Intelligent Manufacturing Command Center</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <header id="header"></header>
-    <main id="app"></main>
-    <dialog id="modal"></dialog>
-    <div id="toast"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
-</html>
-```
-
----
-
-## 14. src/views/command.js (Redesigned Compact Terminal UI)
+## 10. src/components/header.js (Stockbit-Style Event-Aware Date Control)
 
 ```js
-import { state as S, LENS } from '../core/state.js';
-import { CUR, kpiData, score, stakeOf, isAct, HE, at, energyAt, FN, ASSETS, byTag, getRcaLifecycle } from '../core/analytics.js';
-import { dS, fmtK, NM, MON, DAY, sum } from '../core/formatting.js';
-import { INC, MFN, groupBy } from '../core/incidents.js';
-import { chip } from '../components/statusChip.js';
-import { loopFunnel } from '../components/decisionLoop.js';
-import { ribbon } from '../components/timeline.js';
-import { getAvailableLenses } from '../auth/auth.js';
+import { ASSETS, T0, NDAYS } from '../core/analytics.js';
+import { DAY, DOW, dS, fmtK } from '../core/formatting.js';
+import { INC } from '../core/incidents.js';
+import { state as S } from '../core/state.js';
+import { getCurrentUser, logout, canAccessView } from '../auth/auth.js';
 
-export function tankRows() {
-  const rows = CUR.filter((x) => isAct(x.s.s))
-    .map((x) => ({ ...x, sc: score(x.a, x.s) }))
-    .sort((p, q) => q.sc.total - p.sc.total);
-  const rec = CUR.filter((x) => x.s.s === 'R'),
-    nor = CUR.filter((x) => x.s.s === 'N');
+export const EVENTS = [];
+ASSETS.forEach((a) => {
+  if (a.fl >= 0) EVENTS.push([a.t[a.fl], a.tag + ': Capsul flags ' + a.ns[a.fl] + ' signals']);
+  EVENTS.push([a.t[a.al], a.tag + ': DCS alarm']);
+  EVENTS.push([a.failMs, a.tag + ': trip and outage']);
+});
+EVENTS.sort((p, q) => p[0] - q[0]);
 
-  let h = rows
-    .map(
-      (x, n) => `<div class="tk ${x.s.s}" role="button" tabindex="0" data-open="${x.a.tag}" aria-label="${x.a.tag}, ${NM[x.s.s]}, score ${Math.round(x.sc.total)}"><span class="rk">${n + 1}</span>
-  <div><b>${x.a.tag}</b> ${x.a.c.name} <small class="mu">${x.a.c.plant}, ${x.a.r.disc}, class ${x.a.cls}</small> ${chip(x.s.s)}<div class="is">${issueTextLocal(x.a, x.s)}</div></div>
-  <div class="why" title="${FN.map((f, i) => f + ' ' + x.sc.p[i].toFixed(0)).join(', ')}"><div class="sbar">${x.sc.p.map((p, i) => `<i class="f${i + 1}" style="width:${p}%"></i>`).join('')}</div><small>${x.sc.bonus ? 'Lens adds ' + x.sc.bonus + ' points' : 'What drives the score'}</small></div>
-  <div class="sc">${Math.round(x.sc.total)}<small>of 100</small></div></div>`
-    )
-    .join('');
-
-  if (!rows.length)
-    h = `<div class="empty">No asset is drifting on this date. Use “Jump to a key moment” in the header to see the first flag.</div>`;
-  if (rec.length)
-    h += `<div class="note">Recovering after repair, verify the actions: ${rec.map((x) => `<button class="btn q" data-open="${x.a.tag}">${x.a.tag}</button>`).join(' ')}</div>`;
-  if (nor.length) h += `<div class="note">Normal: ${nor.map((x) => x.a.tag).join(', ')}. No action needed.</div>`;
-  return h;
-}
-
-export function renderCommandView() {
-  const K = kpiData(),
-    act = CUR.filter((x) => isAct(x.s.s)),
-    topAsset = CUR.map((x) => ({ ...x, sc: score(x.a, x.s) })).sort((p, q) => q.sc.total - p.sc.total)[0];
-
-  const degradedTag = topAsset && isAct(topAsset.s.s) ? topAsset.a.tag : 'KO-3201';
-  const aTop = byTag(degradedTag) || ASSETS[0];
-  const stTop = at(aTop, S.ms);
-  const rcaTop = getRcaLifecycle(aTop.tag, S.ms);
-
-  const recentEvts = INC.filter(i => i.ms <= S.ms).sort((a,b) => b.ms - a.ms).slice(0, 5);
-  
-  const units = [
-    { code: 'ARP', name: 'Aurora Resin Plant', tag: 'PU-2101B' },
-    { code: 'ZCU', name: 'Zebu Chemical Unit', tag: 'KO-3201' },
-    { code: 'NUP', name: 'Nova Utility Plant', tag: 'HE-3301' },
-    { code: 'OPP', name: 'Oleo Polymer Plant', tag: 'PM-4405B' }
-  ].map(u => {
-    const asset = byTag(u.tag);
-    const st = asset ? at(asset, S.ms) : { s: 'N', ns: 0 };
-    return {
-      ...u,
-      asset,
-      st: st.s,
-      abnormalities: st.ns
-    };
+export function getEventMap() {
+  const map = {};
+  ASSETS.forEach((a) => {
+    if (a.fl >= 0) {
+      const d = dS(a.t[a.fl], true);
+      (map[d] = map[d] || []).push({ type: 'warning', asset: a.tag, text: `${a.tag}: Capsul flag (${a.ns[a.fl]} signals >3σ)` });
+    }
+    if (a.al >= 0) {
+      const d = dS(a.t[a.al], true);
+      (map[d] = map[d] || []).push({ type: 'alarm', asset: a.tag, text: `${a.tag}: DCS alarm fired` });
+    }
+    if (a.failMs) {
+      const d = dS(a.failMs, true);
+      (map[d] = map[d] || []).push({ type: 'trip', asset: a.tag, text: `${a.tag}: Trip & outage (${a.r.dt} h, ${fmtK(a.r.loss)})` });
+    }
   });
 
-  return `
-    <div class="terminal-hdr">
-      <div class="terminal-title">
-        <h1>Command Center</h1>
-        <span class="mu">Operational Status & Risk Monitoring</span>
-      </div>
-      <div class="terminal-meta">
-        <span class="badge badge-blue">
-          <span class="dot dot-blue"></span> Historical View: ${dS(S.ms, true)} · 08:00
-        </span>
-      </div>
-    </div>
+  INC.forEach((i) => {
+    const d = dS(i.ms, true);
+    (map[d] = map[d] || []).push({ type: 'incident', asset: i.tag, text: `${i.tag}: ${i.title.replace(/^.*?— /, '')}` });
+  });
 
-    <div class="kpi-strip">
-      <div class="kpi-cell">
-        <small class="kpi-lbl">Production</small>
-        <div class="kpi-val-row">
-          <b class="kpi-val">92.4%</b>
-          <span class="kpi-delta positive">▲ 1.2%</span>
-          <small class="mu">target rate</small>
+  return map;
+}
+
+export const TABS = {
+  cmd: 'Command',
+  inv: 'Investigate',
+  act: 'Actions',
+  fnd: 'Foundation',
+  imp: 'Impact'
+};
+
+let calOpen = false;
+let userMenuOpen = false;
+let calYear = new Date(S.ms).getUTCFullYear();
+let calMonth = new Date(S.ms).getUTCMonth();
+
+export function toggleCalendarPopover(force) {
+  calOpen = typeof force === 'boolean' ? force : !calOpen;
+  const popover = document.querySelector('#calendar-popover');
+  const btn = document.querySelector('#date-picker-toggle');
+  if (popover) {
+    popover.classList.toggle('open', calOpen);
+    if (calOpen) {
+      calYear = new Date(S.ms).getUTCFullYear();
+      calMonth = new Date(S.ms).getUTCMonth();
+      renderCalendarGrid();
+    }
+  }
+  if (btn) {
+    btn.setAttribute('aria-expanded', String(calOpen));
+  }
+}
+
+export function toggleUserMenu(force) {
+  userMenuOpen = typeof force === 'boolean' ? force : !userMenuOpen;
+  const menu = document.querySelector('#user-menu');
+  const btn = document.querySelector('#user-menu-toggle');
+  if (menu) {
+    menu.classList.toggle('open', userMenuOpen);
+  }
+  if (btn) {
+    btn.setAttribute('aria-expanded', String(userMenuOpen));
+  }
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function renderCalendarGrid() {
+  const gridEl = document.querySelector('#cal-days-grid');
+  const titleEl = document.querySelector('#cal-month-year');
+  if (!gridEl || !titleEl) return;
+
+  titleEl.textContent = `${MONTH_NAMES[calMonth]} ${calYear}`;
+
+  const eventMap = getEventMap();
+  const firstDay = new Date(Date.UTC(calYear, calMonth, 1));
+  const startingDayOfWeek = (firstDay.getUTCDay() + 6) % 7;
+  const daysInMonth = new Date(Date.UTC(calYear, calMonth + 1, 0)).getUTCDate();
+  const activeDateStr = dS(S.ms, true);
+
+  let html = '';
+
+  const prevMonthDays = new Date(Date.UTC(calYear, calMonth, 0)).getUTCDate();
+  for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+    const dayNum = prevMonthDays - i;
+    html += `<div class="cal-day-cell other-month"><span>${dayNum}</span></div>`;
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dayMs = Date.UTC(calYear, calMonth, day);
+    const dayStr = dS(dayMs, true);
+    const isSelected = dayStr === activeDateStr;
+    const events = eventMap[dayStr] || [];
+
+    let dotsHtml = '';
+    if (events.length > 0) {
+      const types = [...new Set(events.map((e) => e.type))];
+      dotsHtml = `<div class="cal-dots-row">${types
+        .map((t) => `<i class="cal-dot ${t === 'trip' ? 'dot-red' : t === 'warning' ? 'dot-amber' : 'dot-blue'}"></i>`)
+        .join('')}</div>`;
+    }
+
+    html += `
+      <button class="cal-day-cell" data-dms="${dayMs}" data-daystr="${dayStr}" aria-selected="${isSelected}" title="${events.length ? events.map(e => e.text).join(' | ') : dayStr}">
+        <span>${day}</span>
+        ${dotsHtml}
+      </button>
+    `;
+  }
+
+  gridEl.innerHTML = html;
+
+  gridEl.querySelectorAll('.cal-day-cell[data-dms]').forEach((cell) => {
+    cell.onclick = (e) => {
+      e.stopPropagation();
+      const ms = +cell.dataset.dms;
+      if (!isNaN(ms)) {
+        S.ms = ms;
+        window.dispatchEvent(new CustomEvent('replay-change'));
+        toggleCalendarPopover(false);
+      }
+    };
+
+    cell.onmouseenter = () => {
+      const dayStr = cell.dataset.daystr;
+      const events = eventMap[dayStr] || [];
+      const previewEl = document.querySelector('#cal-preview-box');
+      if (previewEl) {
+        if (events.length > 0) {
+          previewEl.innerHTML = `<b>${dayStr}</b> · ${events[0].text}`;
+        } else {
+          previewEl.innerHTML = `<span class="cal-preview-placeholder">${dayStr} · No historical events</span>`;
+        }
+      }
+    };
+  });
+}
+
+export function initHeader() {
+  const headerEl = document.querySelector('#header');
+  if (!headerEl) return;
+
+  const user = getCurrentUser();
+  if (!user) {
+    headerEl.style.display = 'none';
+    return;
+  }
+  headerEl.style.display = '';
+  headerEl.className = 'single-header';
+
+  headerEl.innerHTML = `
+    <div class="header-inner">
+      <div class="header-brand">Cap<i>sul</i></div>
+      
+      <nav id="tabs" class="header-nav" aria-label="Views"></nav>
+      
+      <div class="header-controls">
+        <div class="stockbit-date-control" aria-label="Historical Date Navigation">
+          <button id="prev-event" class="date-step-btn" title="Previous event date">‹</button>
+          
+          <div class="cal-picker-wrapper">
+            <button id="date-picker-toggle" class="date-picker-pill" aria-haspopup="dialog" aria-expanded="false" title="Click to open calendar">
+              <span class="cal-pill-icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </span>
+              <span id="dBig" class="cal-pill-date">${dS(S.ms, true)}</span>
+              <span class="cal-pill-chevron">▾</span>
+            </button>
+
+            <div id="calendar-popover" class="calendar-popover-panel" role="dialog" aria-label="Historical Event Calendar">
+              <div class="cal-popover-hdr">
+                <button id="cal-prev-month" class="cal-nav-btn" aria-label="Previous month">‹</button>
+                <span id="cal-month-year" class="cal-title-txt"></span>
+                <button id="cal-next-month" class="cal-nav-btn" aria-label="Next month">›</button>
+              </div>
+
+              <div class="cal-weekdays-row">
+                <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+              </div>
+
+              <div id="cal-days-grid" class="cal-days-grid"></div>
+
+              <div class="cal-legend-bar">
+                <span><i class="dot dot-red"></i>Trip</span>
+                <span><i class="dot dot-amber"></i>Warning</span>
+                <span><i class="dot dot-blue"></i>Alarm/RCA</span>
+              </div>
+
+              <div id="cal-preview-box" class="cal-preview-box">
+                <span class="cal-preview-placeholder">Hover or tap a date for event details</span>
+              </div>
+            </div>
+          </div>
+
+          <button id="next-event" class="date-step-btn" title="Next event date">›</button>
+          <button id="play" class="stockbit-play-btn ${S.play ? 'playing' : ''}" title="Play or pause historical replay">${S.play ? 'Pause' : 'Play'}</button>
+        </div>
+
+        <div class="user-menu-wrapper">
+          <button id="user-menu-toggle" class="header-pill user-btn" aria-haspopup="true" aria-expanded="false" aria-label="User account menu">
+            <span class="user-avatar">${user.name.charAt(0)}</span>
+            <span class="user-name">${user.name}</span>
+            <span class="user-role-tag">${user.role}</span>
+          </button>
+          
+          <div id="user-menu" class="user-dropdown-menu" role="menu">
+            <div class="user-dropdown-header">
+              <b>${user.name}</b>
+              <small>${user.title}</small>
+            </div>
+            <div class="user-dropdown-divider"></div>
+            <button id="demo" class="menu-item" role="menuitem">
+              <span class="icon" style="display:inline-flex;align-items:center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              </span> Guided demo
+            </button>
+            <button id="how" class="menu-item" role="menuitem">
+              <span class="icon" style="display:inline-flex;align-items:center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span> How it works
+            </button>
+            <button id="theme" class="menu-item" role="menuitem">
+              <span class="icon" style="display:inline-flex;align-items:center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              </span> Switch theme
+            </button>
+            <div class="user-dropdown-divider"></div>
+            <button id="logout-btn" class="menu-item danger" role="menuitem">
+              <span class="icon" style="display:inline-flex;align-items:center;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              </span> Sign out
+            </button>
+          </div>
         </div>
       </div>
-
-      <div class="kpi-cell">
-        <small class="kpi-lbl">Reliability</small>
-        <div class="kpi-val-row">
-          <b class="kpi-val">97.8%</b>
-          <span class="kpi-delta positive">5/5 online</span>
-          <small class="mu">availability</small>
-        </div>
-      </div>
-
-      <div class="kpi-cell">
-        <small class="kpi-lbl">Specific Energy</small>
-        <div class="kpi-val-row">
-          <b class="kpi-val">4.18 <small style="font-size:11px;font-weight:400">GJ/t</small></b>
-          <span class="kpi-delta ${K.ex >= 2 ? 'negative' : 'neutral'}">${(K.ex >= 0 ? '+' : '') + K.ex.toFixed(1)}%</span>
-          <small class="mu">vs fcst</small>
-        </div>
-      </div>
-
-      <div class="kpi-cell">
-        <small class="kpi-lbl">Active Risk</small>
-        <div class="kpi-val-row">
-          <b class="kpi-val" style="color:${act.length > 0 ? 'var(--T)' : 'var(--N)'}">${act.length}</b>
-          <span class="badge ${stTop.s === 'T' || stTop.s === 'A' ? 'badge-red' : stTop.s === 'W' ? 'badge-amber' : 'badge-green'}">
-            ${stTop.s === 'T' ? '1 Critical' : stTop.s === 'A' ? '1 Critical' : stTop.s === 'W' ? '1 Warning' : 'Normal'} · ${degradedTag}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <div class="attention-row ${stTop.s === 'T' || stTop.s === 'A' ? 'crit' : stTop.s === 'W' ? 'warn' : ''}">
-      <div class="att-lhs">
-        <span class="mono att-time">08:00</span>
-        <b class="mono att-tag">${aTop.tag}</b>
-        <span class="att-name">${aTop.c.name}</span>
-        <span class="badge ${stTop.s === 'T' || stTop.s === 'A' ? 'badge-red' : stTop.s === 'W' ? 'badge-amber' : 'badge-green'}">
-          ${stTop.s === 'T' ? 'TRIPPED' : stTop.s === 'A' ? 'HIGH RISK' : stTop.s === 'W' ? 'WARNING' : 'NORMAL'}
-        </span>
-      </div>
-      <div class="att-mid">
-        <span class="att-sig">${aTop.sig[0].n}: <b>${stTop.i >= 0 ? aTop.r.v[0][stTop.i] : 'Baseline'} ${aTop.sig[0].u}</b> <small class="negative">(↑42%)</small></span>
-        <span class="att-sig">${aTop.sig[1].n}: <b>${stTop.i >= 0 ? aTop.r.v[1][stTop.i] : 'Baseline'} ${aTop.sig[1].u}</b></span>
-        <span class="att-rca">RCA: <b>${rcaTop.state}</b> (${rcaTop.confidence}%)</span>
-      </div>
-      <div class="att-rhs">
-        <button class="btn pr" data-open="${aTop.tag}" style="padding:3px 10px;font-size:12px;">Investigate ${aTop.tag} →</button>
-      </div>
-    </div>
-    <div class="att-subnote">
-      <span class="mono" style="font-weight:700;color:var(--brand)">CAUSE HYPOTHESIS:</span> ${rcaTop.causeText}
-    </div>
-
-    <section class="terminal-sec">
-      <div class="terminal-sec-hdr">
-        <h2>Plant & Unit Operational Status</h2>
-        <span class="sm mu">Real-time status across processing units as of ${dS(S.ms, true)}</span>
-      </div>
-      <div class="tb">
-        <table class="terminal-table">
-          <thead>
-            <tr>
-              <th>Unit</th>
-              <th>Plant Name</th>
-              <th>Critical Asset</th>
-              <th>Status</th>
-              <th class="r">Abnormalities</th>
-              <th>Primary Telemetry Signal</th>
-              <th class="r">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${units.map(u => {
-              const a = u.asset;
-              const st = a ? at(a, S.ms) : { s: 'N', ns: 0, i: -1 };
-              const mainSig = a ? a.sig[0] : null;
-              const val = a && st.i >= 0 ? a.r.v[0][st.i] : 'Baseline';
-              return `
-                <tr>
-                  <td><b class="mono" style="color:var(--brand)">${u.code}</b></td>
-                  <td>${u.name}</td>
-                  <td><b class="mono">${u.tag}</b></td>
-                  <td>
-                    <span class="badge ${u.st === 'T' || u.st === 'A' ? 'badge-red' : u.st === 'W' ? 'badge-amber' : 'badge-green'}">
-                      <span class="dot ${u.st === 'T' || u.st === 'A' ? 'dot-red' : u.st === 'W' ? 'dot-amber' : 'dot-green'}"></span>
-                      ${u.st === 'T' ? 'TRIP' : u.st === 'A' ? 'ALERT' : u.st === 'W' ? 'WARNING' : 'NORMAL'}
-                    </span>
-                  </td>
-                  <td class="r mono">${u.abnormalities > 0 ? `<b style="color:var(--T)">${u.abnormalities} / 4</b>` : '0 / 4'}</td>
-                  <td class="mono" style="font-size:12.5px;">
-                    ${mainSig ? `${mainSig.n}: <b>${val} ${mainSig.u}</b>` : 'Normal'}
-                  </td>
-                  <td class="r">
-                    <button class="btn q" data-open="${u.tag}" style="padding:2px 8px;font-size:12px;">View →</button>
-                  </td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <div class="terminal-g2">
-      <section class="terminal-sec" style="margin-top:0;">
-        <div class="terminal-sec-hdr">
-          <h2>Recent Operational Events</h2>
-          <span class="sm mu">Chronological log prior to ${dS(S.ms, true)}</span>
-        </div>
-        <div class="tb">
-          <table class="terminal-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Ref / AR</th>
-                <th>Plant Unit</th>
-                <th>Event Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${recentEvts.length > 0 ? recentEvts.map(evt => `
-                <tr>
-                  <td class="mono mu" style="font-size:12px;">${dS(evt.ms, true)}</td>
-                  <td><b class="mono" style="color:var(--brand)">${evt.mto || 'AR-2026'}</b></td>
-                  <td class="mono">${evt.plant}</td>
-                  <td style="font-size:12.5px;">${evt.cf || 'Equipment Failure'}</td>
-                </tr>
-              `).join('') : '<tr><td colspan="4" class="empty">No recent operational events prior to date.</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="terminal-sec" style="margin-top:0;">
-        <div class="terminal-sec-hdr">
-          <h2>CAPA Action & Problem Queue</h2>
-          <span class="sm mu">Ranked by risk priority index (0–100)</span>
-        </div>
-        <div id="tankrows">${tankRows()}</div>
-        <div class="legend" style="margin-top:6px;font-size:11.5px;">${FN.map((f, i) => `<span><i class="sw" style="background:var(--f${i + 1})"></i>${f}</span>`).join('')}</div>
-      </section>
     </div>
   `;
+
+  const prevBtn = document.querySelector('#prev-event');
+  if (prevBtn) {
+    prevBtn.onclick = (e) => {
+      e.stopPropagation();
+      const past = EVENTS.filter((evt) => evt[0] < S.ms);
+      if (past.length > 0) {
+        S.ms = past[past.length - 1][0];
+        window.dispatchEvent(new CustomEvent('replay-change'));
+      }
+    };
+  }
+
+  const nextBtn = document.querySelector('#next-event');
+  if (nextBtn) {
+    nextBtn.onclick = (e) => {
+      e.stopPropagation();
+      const upcoming = EVENTS.filter((evt) => evt[0] > S.ms);
+      if (upcoming.length > 0) {
+        S.ms = upcoming[0][0];
+        window.dispatchEvent(new CustomEvent('replay-change'));
+      }
+    };
+  }
+
+  const dateToggleBtn = document.querySelector('#date-picker-toggle');
+  if (dateToggleBtn) {
+    dateToggleBtn.onclick = (e) => {
+      e.stopPropagation();
+      toggleUserMenu(false);
+      toggleCalendarPopover();
+    };
+  }
+
+  const prevMonthBtn = document.querySelector('#cal-prev-month');
+  if (prevMonthBtn) {
+    prevMonthBtn.onclick = (e) => {
+      e.stopPropagation();
+      calMonth--;
+      if (calMonth < 0) {
+        calMonth = 11;
+        calYear--;
+      }
+      renderCalendarGrid();
+    };
+  }
+
+  const nextMonthBtn = document.querySelector('#cal-next-month');
+  if (nextMonthBtn) {
+    nextMonthBtn.onclick = (e) => {
+      e.stopPropagation();
+      calMonth++;
+      if (calMonth > 11) {
+        calMonth = 0;
+        calYear++;
+      }
+      renderCalendarGrid();
+    };
+  }
+
+  const userBtn = document.querySelector('#user-menu-toggle');
+  if (userBtn) {
+    userBtn.onclick = (e) => {
+      e.stopPropagation();
+      toggleCalendarPopover(false);
+      toggleUserMenu();
+    };
+  }
+
+  const logoutBtn = document.querySelector('#logout-btn');
+  if (logoutBtn) {
+    logoutBtn.onclick = () => {
+      logout();
+      window.location.reload();
+    };
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#header')) {
+      toggleCalendarPopover(false);
+      toggleUserMenu(false);
+    }
+  });
+}
+
+export function head() {
+  const user = getCurrentUser();
+  const headerEl = document.querySelector('#header');
+  if (!user) {
+    if (headerEl) headerEl.style.display = 'none';
+    return;
+  }
+  if (headerEl) headerEl.style.display = '';
+
+  const dBig = document.querySelector('#dBig');
+  const tabs = document.querySelector('#tabs');
+
+  if (dBig) dBig.textContent = dS(S.ms, true);
+
+  if (tabs) {
+    tabs.innerHTML = Object.keys(TABS)
+      .filter((k) => canAccessView(k))
+      .map((k) => `<button data-tab="${k}" ${S.tab === k ? 'aria-current="page"' : ''}>${TABS[k]}</button>`)
+      .join('');
+  }
 }
 ```
+
