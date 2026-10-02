@@ -1,3 +1,61 @@
+# Full Codebase Reference — Capsul (OpsLens)
+
+This document provides a single-file consolidated source code listing of the entire **Capsul (OpsLens)** web application to assist AI coding agents in reading and analyzing the codebase without needing multi-file view tools.
+
+---
+
+## Table of Contents
+
+1. [index.html](#1-indexhtml)
+2. [src/main.js](#2-srcmainjs)
+3. [src/core/state.js](#3-srccorestatejs)
+4. [src/core/formatting.js](#4-srccoreformattingjs)
+5. [src/core/analytics.js](#5-srccoreanalyticsjs)
+6. [src/core/incidents.js](#6-srccoreincidentsjs)
+7. [src/auth/authConfig.js](#7-srcauthauthconfigjs)
+8. [src/auth/auth.js](#8-srcauthauthjs)
+9. [src/data/rcaConfig.js](#9-srcdatarcaconfigjs)
+10. [src/components/header.js](#10-srccomponentsheaderjs)
+11. [src/components/login.js](#11-srccomponentsloginjs)
+12. [src/components/modal.js](#12-srccomponentsmodaljs)
+13. [src/components/statusChip.js](#13-srccomponentsstatuschipjs)
+14. [src/views/command.js](#14-srcviewscommandjs)
+15. [src/views/investigate.js](#15-srcviewsinvestigatejs)
+16. [src/views/actions.js](#16-srcviewsactionsjs)
+17. [src/views/foundation.js](#17-srcviewsfoundationjs)
+18. [src/views/impact.js](#18-srcviewsimpactjs)
+19. [src/styles/main.css](#19-srcstylesmaincss)
+
+---
+
+## 1. index.html
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Capsul — Intelligent Manufacturing Command Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <header id="header"></header>
+    <main id="app"></main>
+    <dialog id="modal"></dialog>
+    <div id="toast"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
+```
+
+---
+
+## 14. src/views/command.js (Redesigned Compact Terminal UI)
+
+```js
 import { state as S, LENS } from '../core/state.js';
 import { CUR, kpiData, score, stakeOf, isAct, HE, at, energyAt, FN, ASSETS, byTag, getRcaLifecycle } from '../core/analytics.js';
 import { dS, fmtK, NM, MON, DAY, sum } from '../core/formatting.js';
@@ -31,98 +89,6 @@ export function tankRows() {
   return h;
 }
 
-function issueTextLocal(a, s) {
-  const top = s.z.map((z, j) => [z, j]).sort((p, q) => q[0] - p[0])[0];
-  const sg = a.sig[top[1]];
-  if (s.s === 'T') return `Tripped. ${a.r.dt} h of unplanned downtime.`;
-  const sigs = `${s.ns} of 4 signals beyond 3σ`;
-  const sgm = (z) => (z > 10 ? 'over 10σ' : z.toFixed(1) + 'σ');
-  const remTxt = (r) =>
-    r === Infinity
-      ? 'no upward trend'
-      : r > 12
-        ? 'more than 12 wk to trip at the current rate'
-        : r <= 0
-          ? 'at the trip limit'
-          : 'about ' + r.toFixed(1) + ' wk to trip at the current rate';
-
-  return (
-    (s.s === 'W'
-      ? `Capsul flag: ${sigs}. The DCS has not alarmed. `
-      : `DCS alarm since ${dS(a.t[a.al])}. ${sigs}. `) +
-    `Strongest: ${sg.n} at ${sgm(top[0])}. ${remTxt(s.rem).replace(/^./, (c) => c.toUpperCase())}.`
-  );
-}
-
-export const WL = [
-  ['cr', 'Criticality class'],
-  ['ag', 'Signal agreement'],
-  ['tt', 'Time to trip'],
-  ['cs', 'Cost if it fails']
-];
-
-export function wvHTML() {
-  return WL.map(
-    ([k, n], i) =>
-      `<label><i class="sw f${i + 1}" style="display:inline-block;width:11px;height:11px;border-radius:2px;background:var(--f${i + 1});margin-right:5px"></i>${n}: <b class="num wv" data-k="${k}">${S.W[k]}</b><input type="range" min="0" max="60" value="${S.W[k]}" data-w="${k}" aria-label="${n} weight"></label>`
-  ).join('');
-}
-
-export function bars(L, key) {
-  const mx = Math.max(...L.map((x) => x.loss));
-  return L.map(
-    (x) =>
-      `<button class="bl" data-filt="${key}" data-v="${x.k}" aria-pressed="${S.f[key] === x.k}"><span class="n">${x.k}</span><span class="b" style="width:${(x.loss / mx) * 100}%"></span><span class="v num">${fmtK(x.loss)} (${x.n})</span></button>`
-  ).join('');
-}
-
-export function energyChart() {
-  const W = 460,
-    H = 190,
-    pl = 40,
-    pr = 10,
-    pt = 18,
-    pb = 22,
-    he = at(HE, S.ms);
-  const ev = HE.r.v[0].map((_, i) => energyAt(i));
-  const known = ev.filter((_, i) => HE.t[i] <= S.ms);
-  let sl = 0,
-    pj = null;
-  const live = !he.out && he.i >= 3 && he.i <= 19 && isAct(he.s);
-  if (live) {
-    sl = (ev[he.i] - ev[he.i - 3]) / 3;
-    if (sl > 0) pj = ev[he.i] + sl * 4;
-  }
-  const mx = Math.max(3, Math.max(...known, pj || 0) + 1),
-    mn = -1.5;
-  const X = (t) => pl + ((t - HE.t[0]) / (HE.t[25] - HE.t[0])) * (W - pl - pr),
-    Y = (v) => pt + ((mx - v) / (mx - mn)) * (H - pt - pb),
-    P = (a) => a.map((p) => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
-  const past = ev.map((v, i) => [X(HE.t[i]), Y(v)]).filter((_, i) => HE.t[i] <= S.ms);
-
-  let o = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ZCU specific energy against forecast"><rect x="${pl}" y="${Y(1)}" width="${W - pl - pr}" height="${Y(-1) - Y(1)}" fill="var(--N)" opacity=".14"/><line x1="${pl}" x2="${W - pr}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--mute)" stroke-dasharray="5 3"/><text x="${W - pr}" y="${Y(0) + 13}" text-anchor="end">Forecast (0%), band ±1%</text>`;
-  [
-    [HE.fl, 'AI', '--W'],
-    [HE.al, 'DCS', '--A'],
-    [20, 'Trip', '--T']
-  ].forEach(([i, l, c]) => {
-    if (i >= 0 && HE.t[i] <= S.ms)
-      o += `<line x1="${X(HE.t[i])}" x2="${X(HE.t[i])}" y1="${pt}" y2="${H - pb}" stroke="var(${c})"/><text x="${X(HE.t[i]) + 2}" y="${pt - 4}" style="fill:var(${c});font-weight:600">${l}</text>`;
-  });
-  if (past.length > 1) o += `<polyline points="${P(past)}" fill="none" stroke="var(--A)" stroke-width="2.4"/>`;
-  if (pj !== null) {
-    const p = [[X(HE.t[he.i]), Y(ev[he.i])]];
-    for (let k = 1; k <= 4; k++) p.push([X(HE.t[he.i] + 7 * k * DAY), Y(ev[he.i] + sl * k)]);
-    o += `<polyline points="${P(p)}" fill="none" stroke="var(--A)" stroke-width="2" stroke-dasharray="6 4"/><text x="${p[4][0]}" y="${p[4][1] - 6}" text-anchor="end">forecast if unchanged</text>`;
-  }
-  if (he.i >= 0 && !he.out) {
-    const c = [X(HE.t[he.i]), Y(ev[he.i])];
-    o += `<circle cx="${c[0]}" cy="${c[1]}" r="4.5" fill="var(--A)"/><text class="sv" x="${c[0] - 7}" y="${c[1] - 8}" text-anchor="end" style="font-weight:600">+${ev[he.i].toFixed(1)}%</text>`;
-  }
-  o += `<text x="${pl - 4}" y="${pt + 4}" text-anchor="end">+${mx.toFixed(0)}%</text><text x="${pl - 4}" y="${H - pb}" text-anchor="end">−1%</text><text x="${pl}" y="${H - 5}">${dS(HE.t[0])}</text><text x="${W - pr}" y="${H - 5}" text-anchor="end">${dS(HE.t[25])}</text></svg>`;
-  return { svg: o, pj };
-}
-
 export function renderCommandView() {
   const K = kpiData(),
     act = CUR.filter((x) => isAct(x.s.s)),
@@ -133,10 +99,8 @@ export function renderCommandView() {
   const stTop = at(aTop, S.ms);
   const rcaTop = getRcaLifecycle(aTop.tag, S.ms);
 
-  // Time-aware recent events (up to S.ms)
   const recentEvts = INC.filter(i => i.ms <= S.ms).sort((a,b) => b.ms - a.ms).slice(0, 5);
   
-  // Plant Unit Overview Matrix data
   const units = [
     { code: 'ARP', name: 'Aurora Resin Plant', tag: 'PU-2101B' },
     { code: 'ZCU', name: 'Zebu Chemical Unit', tag: 'KO-3201' },
@@ -154,7 +118,6 @@ export function renderCommandView() {
   });
 
   return `
-    <!-- COMPACT TERMINAL HEADER BAR -->
     <div class="terminal-hdr">
       <div class="terminal-title">
         <h1>Command Center</h1>
@@ -167,7 +130,6 @@ export function renderCommandView() {
       </div>
     </div>
 
-    <!-- CORE PLANT STATE BAND (INLINE 50-60px TALL) -->
     <div class="kpi-strip">
       <div class="kpi-cell">
         <small class="kpi-lbl">Production</small>
@@ -207,7 +169,6 @@ export function renderCommandView() {
       </div>
     </div>
 
-    <!-- PRIMARY OPERATIONAL ATTENTION ROW -->
     <div class="attention-row ${stTop.s === 'T' || stTop.s === 'A' ? 'crit' : stTop.s === 'W' ? 'warn' : ''}">
       <div class="att-lhs">
         <span class="mono att-time">08:00</span>
@@ -230,7 +191,6 @@ export function renderCommandView() {
       <span class="mono" style="font-weight:700;color:var(--brand)">CAUSE HYPOTHESIS:</span> ${rcaTop.causeText}
     </div>
 
-    <!-- PLANT & UNIT OPERATIONAL STATUS TABLE -->
     <section class="terminal-sec">
       <div class="terminal-sec-hdr">
         <h2>Plant & Unit Operational Status</h2>
@@ -281,9 +241,7 @@ export function renderCommandView() {
       </div>
     </section>
 
-    <!-- SIDE-BY-SIDE OPERATIONAL TERMINAL SPLIT -->
     <div class="terminal-g2">
-      <!-- RECENT OPERATIONAL EVENTS LOG -->
       <section class="terminal-sec" style="margin-top:0;">
         <div class="terminal-sec-hdr">
           <h2>Recent Operational Events</h2>
@@ -313,7 +271,6 @@ export function renderCommandView() {
         </div>
       </section>
 
-      <!-- CAPA ACTION & PROBLEM QUEUE -->
       <section class="terminal-sec" style="margin-top:0;">
         <div class="terminal-sec-hdr">
           <h2>CAPA Action & Problem Queue</h2>
@@ -325,4 +282,4 @@ export function renderCommandView() {
     </div>
   `;
 }
-
+```
