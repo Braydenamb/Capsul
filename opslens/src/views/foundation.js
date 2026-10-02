@@ -1,6 +1,7 @@
 import { state as S } from '../core/state.js';
 import { ASSETS, dq } from '../core/analytics.js';
 import { INC } from '../core/incidents.js';
+import { dS } from '../core/formatting.js';
 
 export const KP_DICT = [
   ['Availability', '(Period h − downtime h) ÷ period h', 'Reliability', 'Equipment record', 'Weekly'],
